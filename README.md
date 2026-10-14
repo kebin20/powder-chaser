@@ -18,11 +18,13 @@ The deployment environment and forecast mode are separate: both previews offer a
 - Overnight snowfall range, followed by a short trip recommendation.
 - Expandable model comparison, official resort links, and data limitations.
 - A personal minimum-snowfall threshold and favourite resorts saved in your browser.
+- A searchable Japan catalogue of 520 downhill areas across 35 prefectures, with English/Japanese names, aliases, and prefecture filters.
+- An on-demand snowfall-history view: published Grand Hirafu records where verified, and clearly labelled ERA5 estimates elsewhere, with five/ten winter charts and source details.
 - Search by resort or region, save a personal shortlist, and compare the next two mornings in Plan a trip.
 - Outlined alpine favicon, Apple home-screen icon, web app manifest, and an offline app shell.
 - A wider desktop dashboard with the hero and forecast summary alongside each other, while phones retain the compact layout.
 
-Initial coverage: Akakura Kanko, Kagura, Hakuba Happo-one, Nozawa Onsen, Madarao Mountain, Niseko Grand Hirafu, Rusutsu, and Furano. Coordinates and elevations are representative forecast sampling points, not exact lift or observation-station locations.
+The eight curated starter resorts are Akakura Kanko, Kagura, Hakuba Happo-one, Nozawa Onsen, Madarao Mountain, Niseko Grand Hirafu, Rusutsu, and Furano. The full searchable catalogue contains 520 Japan downhill areas. Coordinates and elevations are representative forecast sampling points or mapped estimates, not exact lift or observation-station locations.
 
 ## Data: sample vs live
 
@@ -70,12 +72,13 @@ npm run preview
 | --- | --- |
 | `npm run dev` | Local development with fast refresh |
 | `npm run check` | TypeScript validation |
-| `npm test` | Forecast, dates, recommendation, and service-worker tests |
+| `npm test` | Forecast, history, catalogue, recommendation, and service-worker tests |
 | `npm run test:watch` | Re-run tests while developing |
 | `npm run build` | Type-check, compile, and stamp the service worker release |
 | `npm run preview` | Serve the compiled app locally |
 | `npm run icons` | Regenerate PNG/ICO icons from the original SVG |
 | `npm run images` | Reproduce the optimised WebP hero assets from the original PNGs |
+| `npm run catalogue:import` | Refresh the licensed Japan ski-area catalogue from OpenSkiData |
 
 Optional build configuration is documented in [`.env.example`](.env.example):
 
@@ -96,7 +99,7 @@ Live forecasting shares one three-day provider response across both upcoming ski
 
 Desktop screens use a wider main panel with larger text, a taller hero, and side-by-side forecast and planning cards. Mobile keeps its compact hero and bottom navigation. Keyboard users can skip to the main content; settings are labelled, and each view has one visible main heading.
 
-See [performance measurements and verification](docs/performance.md) for benchmark conditions and results. Asset sizes describe downloaded files, not a guaranteed page-load time on every connection.
+The catalogue has its own content-hashed data chunk for independent caching across UI updates; it is still part of the initial download. The history view is a separate JavaScript chunk and only requests archive data after it is opened. Catalogue lists show 24 rows at a time and search the full local dataset. See the [0.1.2 performance audit](docs/performance.md) for its benchmark conditions and results; the expanded catalogue and history feature were added after that benchmark. Asset sizes describe downloaded files, not a guaranteed page-load time on every connection.
 
 ## Development and previews
 
@@ -132,7 +135,8 @@ The service worker precaches the static shell and compiled app assets, with sepa
 src/
   App.tsx                 Resort dashboard and interactions
   main.tsx                App entry and service worker registration
-  data/                   Resort catalog, sample fixtures, provider definitions
+  data/                   Licensed Japan catalogue, curated resorts, sample fixtures
+  components/             Lazy historical snowfall dialog and charts
   assets/                 Optimised WebP hero illustrations
   lib/                    Japan dates, snapshots, recommendation and forecast logic
   types.ts                Shared data contracts
@@ -144,26 +148,37 @@ scripts/
   generate-icons.mjs      Reproducible icon generation with Sharp
   optimize-images.mjs     Reproducible WebP generation from original hero PNGs
   stamp-build.mjs         Release-specific offline cache identifier
+  import-japan-resorts.mjs Reproducible licensed catalogue import
 docs/
-  performance.md          Benchmark conditions, measurements, and verification
+  performance.md          Earlier performance benchmark conditions and results
+  resort-catalogue.md      Catalogue coverage, sources, licence and import
+  history.md              Resort records, estimate method and cache behaviour
 .github/
   workflows/              CI and paired live/staging Pages deployment
   ISSUE_TEMPLATE/         Bug reports and feature requests
 tests/                    Behavioral tests
 ```
 
+## Resort catalogue and snowfall history
+
+Use **Find a resort**, search in English or Japanese, or filter by prefecture. Tap the star to add an area to **Favorites**. The catalogue includes all named Japan downhill areas available in the selected OpenSkiData snapshot, plus a separate Grand Hirafu sampling location. It is not a guarantee that every operating ski resort is mapped. Closed/planned areas are excluded where the source identifies them; six retained areas have unknown catalogue operating status. A mapped status does not confirm lift access on a trip date. See [catalogue coverage, provenance, and licensing](docs/resort-catalogue.md).
+
+The existing eight curated IDs are retained, so saved favourites survive the expansion. Favourites are stored on this browser; there is no account or cross-device synchronisation. New areas use live forecasts rather than inheriting a fictional resort report. Missing terrain heights use the provider’s default location grid and are labelled **Resort area**. Missing official websites link to the source map listing.
+
+**Snowfall history** opens a separate dialog without adding a chart to the main dashboard. Resort records and model estimates are separate datasets. Verified Grand Hirafu records retain their published dates, station locations, partial totals, and missing years; partial reports do not become final winter bars. Other resorts use Open-Meteo’s historical ERA5 snowfall estimates. The estimate chart adds daily fresh snowfall over complete **1 November–30 April** winters, shows monthly totals, and offers five/ten winters. Missing days remain unavailable. Historical snowfall is not snow depth or a prediction of the next trip. See [history data and methodology](docs/history.md).
+
 ## Next steps
 
-Integrate licensed Japanese forecast feeds and timestamped resort reports, expand resort coverage, calibrate forecast accuracy against observations, and add personalised powder alerts. The initial app focuses on the visual workflow and a working model comparison.
+Integrate licensed Japanese forecast feeds and timestamped resort reports, improve catalogue coverage and official historical records, calibrate forecast accuracy against observations, and add personalised powder alerts. The initial app focuses on the visual workflow and a working model comparison.
 
 ## Changelog
 
 <details>
-<summary>0.1.2 · 14 October 2026 · Lighter assets and a wider desktop view</summary>
+<summary>0.1.3 · 15 October 2026 · Japan catalogue and snowfall history</summary>
 
-- Hero images are 78.8% smaller, with compiled assets cached for repeat visits.
-- Both ski mornings share one live provider request for the selected resort and elevation.
-- A wider desktop dashboard, larger text, and clearer keyboard access.
+- Search 520 Japan downhill areas by English/Japanese name or prefecture and save favourites.
+- Open five/ten winter history charts with separate resort-record and model-estimate views.
+- Lazy history loading, paginated resort lists, and explicit handling of missing map metadata.
 
 [Open the full changelog](CHANGELOG.md). Detailed releases are collapsible so this README stays easy to scan.
 

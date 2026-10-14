@@ -77,7 +77,9 @@ describe('powder recommendations', () => {
     const upper = getDemoSnapshot(resort, date, 'upper', now);
     expect(decide(base).quality).toBe('rain');
     expect(decide(upper).quality).toBe('dry');
-    expect(base.elevationM).toBeLessThan(upper.elevationM);
+    expect(base.elevationM).not.toBeNull();
+    expect(upper.elevationM).not.toBeNull();
+    expect(base.elevationM!).toBeLessThan(upper.elevationM!);
   });
 
   it('reports an arithmetic comparison, never a probability', () => {

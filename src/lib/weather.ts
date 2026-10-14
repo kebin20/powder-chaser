@@ -6,7 +6,7 @@ import { assembleSnapshot } from './snapshot';
 
 export const WEATHER_CACHE_TTL_MS = 45 * 60 * 1000;
 export const WEATHER_CACHE_MAX_ENTRIES = 32;
-const CACHE_VERSION = 'powder-weather-v2';
+const CACHE_VERSION = 'powder-weather-v3';
 const REQUEST_TIMEOUT_MS = 15_000;
 interface CacheEntry { key: string; storedAt: number; response: unknown }
 interface PendingRequest {
@@ -38,19 +38,22 @@ function validateSelection(resort: Resort, date: string, elevation: Elevation, n
     throw new Error('Choose a supported resort in Japan.');
   }
   const meters = elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
-  if (!Number.isFinite(meters) || meters < 0 || meters > 4000) throw new Error('Invalid forecast elevation.');
+  if (meters !== null && (!Number.isFinite(meters) || meters < 0 || meters > 4000)) throw new Error('Invalid forecast elevation.');
 }
 
 export function buildForecastUrl(resort: Resort, date: string, elevation: Elevation, now = new Date()): string {
   validateSelection(resort, date, elevation, now);
   const parameters = new URLSearchParams({
     latitude: String(resort.latitude), longitude: String(resort.longitude),
-    elevation: String(elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM),
     models: WEATHER_MODELS.map((model) => model.id).join(','),
     hourly: 'snowfall,temperature_2m,wind_speed_10m,rain',
     timezone: 'Asia/Tokyo', forecast_days: '3',
     temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm',
   });
+  const meters = elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
+  // Unknown terrain height uses the provider's default location grid. Do not
+  // invent an upper/base altitude from a different station or mountain.
+  if (meters !== null) parameters.set('elevation', String(meters));
   return `https://api.open-meteo.com/v1/forecast?${parameters}`;
 }
 
@@ -123,7 +126,7 @@ export function parseForecastResponse(
 /** Both ski mornings come from one three-day payload; the query day bounds reuse. */
 function cacheKey(resort: Resort, queryDay: string, elevation: Elevation): string {
   const meters = elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
-  return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${queryDay}:${elevation}:${meters}`;
+  return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${queryDay}:${meters ?? 'auto'}`;
 }
 
 function pruneCache(now: number) {

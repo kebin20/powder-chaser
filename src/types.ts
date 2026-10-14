@@ -5,15 +5,25 @@ export type Verdict = 'go' | 'maybe' | 'skip';
 export interface Resort {
   id: string;
   name: string;
-  region: 'Nagano' | 'Niigata' | 'Hokkaido';
+  /** Prefecture, derived from the catalogue's place metadata. */
+  region: string;
+  regionJapanese: string;
+  aliases: string[];
+  locality: string | null;
   latitude: number;
   longitude: number;
-  baseElevationM: number;
-  upperElevationM: number;
-  baseElevation: number;
-  upperElevation: number;
-  officialUrl: string;
-  officialReportUrl: string;
+  baseElevationM: number | null;
+  upperElevationM: number | null;
+  baseElevation: number | null;
+  upperElevation: number | null;
+  elevationSource: 'curated' | 'mapped' | 'unknown';
+  officialUrl: string | null;
+  officialReportUrl: string | null;
+  catalogueStatus: 'operating' | 'unknown';
+  catalogueSource: 'curated' | 'openskidata';
+  /** Durable upstream identifiers; OpenSkiData content hashes change each build. */
+  sourceIds: string[];
+  sourceUrl: string;
 }
 
 export interface TripDate {
@@ -43,7 +53,7 @@ export interface SnowReport {
   depthCm: number | null;
   location: string;
   updatedAt: string | null;
-  sourceUrl: string;
+  sourceUrl: string | null;
   fictional: boolean;
 }
 
@@ -65,7 +75,7 @@ export interface WeatherSnapshot {
   resortId: string;
   date: string;
   elevation: Elevation;
-  elevationM: number;
+  elevationM: number | null;
   models: ForecastModel[];
   forecasts: ForecastModel[];
   report: SnowReport;
