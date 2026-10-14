@@ -11,7 +11,7 @@ A calmer way to choose your next powder day in Japan. Compare overnight snowfall
 
 The deployment environment and forecast mode are separate: both previews offer a clearly labelled sample mode and an optional live forecast mode. Live and staging keep separate browser preferences and favourite resorts.
 
-## What the first version does
+## Features
 
 - Calm Alpine design with two **static 2D hero cards**: snowfall conditions and a snow-depth illustration. Swipe or use the carousel buttons; there is no animation or automatic rotation.
 - Japan resort selection, two upcoming ski mornings in Japan time, and base/upper-mountain forecasts.
@@ -20,6 +20,7 @@ The deployment environment and forecast mode are separate: both previews offer a
 - A personal minimum-snowfall threshold and favourite resorts saved in your browser.
 - Search by resort or region, save a personal shortlist, and compare the next two mornings in Plan a trip.
 - Outlined alpine favicon, Apple home-screen icon, web app manifest, and an offline app shell.
+- A wider desktop dashboard with the hero and forecast summary alongside each other, while phones retain the compact layout.
 
 Initial coverage: Akakura Kanko, Kagura, Hakuba Happo-one, Nozawa Onsen, Madarao Mountain, Niseko Grand Hirafu, Rusutsu, and Furano. Coordinates and elevations are representative forecast sampling points, not exact lift or observation-station locations.
 
@@ -69,11 +70,12 @@ npm run preview
 | --- | --- |
 | `npm run dev` | Local development with fast refresh |
 | `npm run check` | TypeScript validation |
-| `npm test` | Forecast, dates, and recommendation tests |
+| `npm test` | Forecast, dates, recommendation, and service-worker tests |
 | `npm run test:watch` | Re-run tests while developing |
 | `npm run build` | Type-check, compile, and stamp the service worker release |
 | `npm run preview` | Serve the compiled app locally |
 | `npm run icons` | Regenerate PNG/ICO icons from the original SVG |
+| `npm run images` | Reproduce the optimised WebP hero assets from the original PNGs |
 
 Optional build configuration is documented in [`.env.example`](.env.example):
 
@@ -83,6 +85,18 @@ Optional build configuration is documented in [`.env.example`](.env.example):
 | `VITE_APP_ENV` | `development` | `production` | `staging` |
 
 Vite exposes `VITE_` variables to visitors. Future licensed API credentials belong in a server, not in these values or this public repository.
+
+## Performance and layout
+
+The two static hero illustrations use **53,450 bytes combined**, down from **252,390 bytes** for the original PNGs: **78.8% smaller**. Vite publishes the WebP images with content hashes. The original PNGs remain as reproducible sources and for compatibility with earlier versions; the current UI loads the WebP assets.
+
+The build records every compiled asset for the service worker, including images and any deferred chunks, and deduplicates entry-point URLs before precaching. Known assets in the current release are served from the cache first. Live and staging keep separate offline caches, and the worker bypasses external weather requests.
+
+Live forecasting shares one three-day provider response across both upcoming ski mornings for the same resort, elevation, and Japan query date. The **45-minute cache** holds at most **32 responses** and does not reuse a previous Japan query day's entry after midnight. Concurrent views share a request; cancelling one view does not cancel another view's forecast.
+
+Desktop screens use a wider main panel with larger text, a taller hero, and side-by-side forecast and planning cards. Mobile keeps its compact hero and bottom navigation. Keyboard users can skip to the main content; settings are labelled, and each view has one visible main heading.
+
+See [performance measurements and verification](docs/performance.md) for benchmark conditions and results. Asset sizes describe downloaded files, not a guaranteed page-load time on every connection.
 
 ## Development and previews
 
@@ -110,7 +124,7 @@ If a pull request's CI run is missing, open **Actions → CI → Run workflow** 
 
 The app supplies an opaque **180 × 180 Apple touch icon**, 192/512 px web-app icons, maskable variants, and a standalone manifest. These assets use environment-relative paths, so live and staging each install with the correct URL. The staging installation is named **Powder Staging** to help distinguish it on your home screen. See [Google's Chrome iOS instructions](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DiOS&hl=en).
 
-The service worker caches the static shell and versioned app assets, with separate caches for live and staging. It does not cache weather responses. Offline access can reopen the interface; it cannot retrieve a current forecast. Close existing app tabs and reopen after an update so a waiting service worker can activate.
+The service worker precaches the static shell and compiled app assets, with separate caches for live and staging. It serves known release assets from the cache first and does not cache weather responses. Offline access can reopen the interface; it cannot retrieve a current forecast. Close existing app tabs and reopen after an update so a waiting service worker can activate.
 
 ## Project map
 
@@ -119,6 +133,7 @@ src/
   App.tsx                 Resort dashboard and interactions
   main.tsx                App entry and service worker registration
   data/                   Resort catalog, sample fixtures, provider definitions
+  assets/                 Optimised WebP hero illustrations
   lib/                    Japan dates, snapshots, recommendation and forecast logic
   types.ts                Shared data contracts
 public/
@@ -127,7 +142,10 @@ public/
   sw.js                   Static-shell service worker
 scripts/
   generate-icons.mjs      Reproducible icon generation with Sharp
+  optimize-images.mjs     Reproducible WebP generation from original hero PNGs
   stamp-build.mjs         Release-specific offline cache identifier
+docs/
+  performance.md          Benchmark conditions, measurements, and verification
 .github/
   workflows/              CI and paired live/staging Pages deployment
   ISSUE_TEMPLATE/         Bug reports and feature requests
@@ -141,11 +159,11 @@ Integrate licensed Japanese forecast feeds and timestamped resort reports, expan
 ## Changelog
 
 <details>
-<summary>0.1.1 · 14 October 2026 · Clearer hero and alpine identity</summary>
+<summary>0.1.2 · 14 October 2026 · Lighter assets and a wider desktop view</summary>
 
-- Clearer spacing for static hero artwork, captions, and snow-depth report notes.
-- A visible official resort website link and a more prominent trip verdict.
-- Matching outlined alpine browser and home-screen icons with refreshed asset URLs.
+- Hero images are 78.8% smaller, with compiled assets cached for repeat visits.
+- Both ski mornings share one live provider request for the selected resort and elevation.
+- A wider desktop dashboard, larger text, and clearer keyboard access.
 
 [Open the full changelog](CHANGELOG.md). Detailed releases are collapsible so this README stays easy to scan.
 

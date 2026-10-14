@@ -7,6 +7,25 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.2 — 2026-10-14</strong> · Lighter assets and a wider desktop view</summary>
+
+### Changed
+
+- Converted the static hero artwork to WebP: 252,390 → 53,450 bytes combined, a 78.8% reduction. Original PNG paths remain available for compatibility.
+- Added `npm run images` to reproduce the optimised illustrations and moved the UI to Vite's content-hashed asset URLs.
+- Precached all compiled assets, including deferred chunks and illustrations, with deduplicated URLs and cache-first delivery of known release assets.
+- Shared one live provider response across both upcoming ski mornings for a resort and elevation. The bounded 45-minute cache is keyed by the Japan query date, and concurrent consumers cancel independently.
+- Expanded the desktop dashboard with a wider main panel, a taller hero, and side-by-side forecast and planning cards.
+- Increased text readability and contrast, added a keyboard skip link, labelled settings, and kept one visible main heading per view.
+
+### Verification
+
+- Expanded behavioral coverage to 35 tests: 29 weather/date/recommendation tests and six service-worker tests.
+- Documented benchmark conditions and performance measurements in `docs/performance.md`.
+
+</details>
+
+<details>
 <summary><strong>0.1.1 — 2026-10-14</strong> · Clearer hero and alpine identity</summary>
 
 ### Changed

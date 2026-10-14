@@ -4,13 +4,15 @@ const APP_URL = new URL(self.registration.scope);
 const CACHE_PREFIX = `powder-chaser:${APP_URL.href}:`;
 const CACHE_NAME = `${CACHE_PREFIX}${RELEASE}`;
 const INDEX_URL = new URL('index.html', APP_URL).href;
+const COMPILED_PATHS = /* __POWDER_CHASER_ASSET_PATHS__ */ [];
 const SHELL_PATHS = [
   'manifest.webmanifest', 'icons/favicon-alpine.svg', 'icons/favicon-alpine.ico',
   'icons/icon-alpine-32.png', 'icons/apple-touch-icon-alpine.png',
   'icons/icon-alpine-192.png', 'icons/icon-alpine-512.png',
   'icons/maskable-alpine-192.png', 'icons/maskable-alpine-512.png',
-  'images/snow-cloud.png', 'images/snowy-tree.png',
 ];
+const RELEASE_URLS = new Set([...SHELL_PATHS, ...COMPILED_PATHS]
+  .map((path) => new URL(path, APP_URL).href));
 
 function isAppResource(url) {
   if (url.origin !== APP_URL.origin || !url.pathname.startsWith(APP_URL.pathname)) return false;
@@ -31,7 +33,9 @@ self.addEventListener('install', (event) => {
       .map((match) => new URL(match[1], APP_URL))
       .filter((url) => isAppResource(url) && url.pathname.includes('/assets/'))
       .map((url) => url.href);
-    await cache.addAll([...SHELL_PATHS.map((path) => new URL(path, APP_URL).href), ...entryAssets]);
+    // Include compiled illustrations and any deferred chunks, not only the
+    // entry points linked from HTML. Dedupe overlapping URLs before addAll.
+    await cache.addAll([...new Set([...RELEASE_URLS, ...entryAssets])]);
     // The new worker activates when old tabs close, preserving their assets.
   })());
 });
@@ -73,7 +77,7 @@ self.addEventListener('fetch', (event) => {
   event.respondWith((async () => {
     const cache = await caches.open(CACHE_NAME);
     const cached = await cache.match(request);
-    if (isHashedAsset && cached) return cached;
+    if ((isHashedAsset || RELEASE_URLS.has(url.href)) && cached) return cached;
     try {
       const response = await fetch(request);
       if (response.ok) await cache.put(request, response.clone());

@@ -15,6 +15,7 @@ git fetch origin
 git switch staging
 git pull --ff-only origin staging
 git switch -c codex/feature-name
+git merge origin/main
 npm ci
 npm run dev
 ```
@@ -28,6 +29,8 @@ npm run build
 ```
 
 Push the feature branch and open a pull request targeting `staging`. Include what the user sees, why it changed, and relevant validation. UI changes should include a mobile screenshot and a check at narrow widths. After merge, review the [staging preview](https://kebin20.github.io/powder-chaser/staging/) and promote through a `staging` → `main` pull request. Avoid direct pushes to environment branches during regular development.
+
+Include the current `main` history in the feature branch before its staging merge. This carries released fixes forward and lets the next promotion satisfy the protected branch's requirement to be up to date. Resolve any conflicts and rerun validation before merging.
 
 ## Forecast changes
 
