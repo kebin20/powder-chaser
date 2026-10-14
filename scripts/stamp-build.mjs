@@ -17,6 +17,7 @@ if (process.env.VITE_APP_ENV === 'staging') {
     .replace('<title>Powder Chaser — Japan powder days</title>', '<title>Powder Chaser Staging — Japan powder days</title>'));
 }
 const hash = createHash('sha256');
+const compiledPaths = [];
 async function addFiles(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   entries.sort((left, right) => left.name.localeCompare(right.name));
@@ -24,7 +25,9 @@ async function addFiles(directory) {
     const filename = path.join(directory, entry.name);
     if (entry.isDirectory()) await addFiles(filename);
     else {
-      hash.update(path.relative(dist, filename));
+      const relative = path.relative(dist, filename).split(path.sep).join('/');
+      if (relative.startsWith('assets/')) compiledPaths.push(relative);
+      hash.update(relative);
       hash.update(await readFile(filename));
     }
   }
@@ -34,6 +37,10 @@ const release = hash.digest('hex').slice(0, 16);
 const workerPath = path.join(dist, 'sw.js');
 const worker = await readFile(workerPath, 'utf8');
 const marker = '__POWDER_CHASER_RELEASE__';
-if (!worker.includes(marker)) throw new Error('Missing service worker release marker; run a fresh Vite build first.');
-await writeFile(workerPath, worker.replace(marker, release));
-process.stdout.write(`Stamped offline shell release ${release}.\n`);
+const assetMarker = '/* __POWDER_CHASER_ASSET_PATHS__ */ []';
+if (!worker.includes(marker) || !worker.includes(assetMarker)) {
+  throw new Error('Missing service worker build markers; run a fresh Vite build first.');
+}
+await writeFile(workerPath, worker.replace(marker, release)
+  .replace(assetMarker, JSON.stringify(compiledPaths.sort())));
+process.stdout.write(`Stamped offline shell release ${release} with ${compiledPaths.length} compiled assets.\n`);

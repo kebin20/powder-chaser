@@ -28,6 +28,20 @@ function providerResponse(date = DATE) {
   return { timezone: 'Asia/Tokyo', utc_offset_seconds: 32400, hourly, hourly_units, generationtime_ms: 2.1 };
 }
 
+function threeDayResponse(firstSkiDate = DATE) {
+  const response = providerResponse(firstSkiDate);
+  const today = addDays(firstSkiDate, -1);
+  const times = Array.from({ length: 72 }, (_, index) =>
+    `${addDays(today, Math.floor(index / 24))}T${String(index % 24).padStart(2, '0')}:00`);
+  const secondWindow = new Set(overnightHourEnds(addDays(firstSkiDate, 1)));
+  for (const key of Object.keys(response.hourly)) {
+    response.hourly[key] = key === 'time' ? times : times.map((time) =>
+      key.startsWith('snowfall_') ? secondWindow.has(time) ? 3 : 2
+        : key.startsWith('temperature_') ? -5 : key.startsWith('wind_') ? 20 : 0);
+  }
+  return response;
+}
+
 describe('JST trip windows', () => {
   it('uses the Japan date across a UTC day/year boundary', () => {
     const now = new Date('2025-12-31T16:00:00Z');
@@ -116,7 +130,7 @@ describe('live request and cache behavior', () => {
     vi.useRealTimers();
   });
   const successfulFetch = () => vi.fn().mockImplementation(async () => ({
-    ok: true, json: async () => providerResponse(),
+    ok: true, json: async () => threeDayResponse(),
   }));
 
   it('requests explicit models, Japan time and the selected reference elevation', () => {
@@ -128,19 +142,60 @@ describe('live request and cache behavior', () => {
     expect(() => buildForecastUrl(RESORT, '2026-01-30', 'upper', NOW)).toThrow(/next two/);
   });
 
-  it('reuses fresh cache, distinguishes elevation/date, and expires after 45 minutes', async () => {
+  it('reuses one payload for both mornings, distinguishes elevation, and expires after 45 minutes', async () => {
     const fetchMock = successfulFetch();
     vi.stubGlobal('fetch', fetchMock);
     const initial = await fetchLiveSnapshot(RESORT, DATE, 'upper');
     await fetchLiveSnapshot(RESORT, DATE, 'upper');
     expect(fetchMock).toHaveBeenCalledTimes(1);
     await fetchLiveSnapshot(RESORT, DATE, 'base');
-    await fetchLiveSnapshot(RESORT, '2026-01-22', 'upper');
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    const secondMorning = await fetchLiveSnapshot(RESORT, '2026-01-22', 'upper');
+    expect(secondMorning.date).toBe('2026-01-22');
+    expect(secondMorning.typicalCm).toBe(42);
+    expect(initial.typicalCm).toBe(28);
+    expect(secondMorning.updatedAt).toBe(initial.updatedAt);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     vi.setSystemTime(new Date(NOW.getTime() + WEATHER_CACHE_TTL_MS));
     const refreshed = await fetchLiveSnapshot(RESORT, DATE, 'upper');
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(refreshed.updatedAt).not.toBe(initial.updatedAt);
+  });
+
+  it('shares a concurrent provider query while normalizing each date independently', async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const [first, second] = await Promise.all([
+      fetchLiveSnapshot(RESORT, DATE, 'upper'),
+      fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper'),
+    ]);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(first.typicalCm).toBe(28);
+    expect(second.typicalCm).toBe(42);
+    expect(first.window.end).not.toBe(second.window.end);
+  });
+
+  it('does not reuse yesterday’s query after Japan midnight even within the cache TTL', async () => {
+    vi.setSystemTime(new Date('2026-01-20T14:59:00Z'));
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    await fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
+    vi.setSystemTime(new Date('2026-01-20T15:01:00Z'));
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => threeDayResponse(addDays(DATE, 1)) }));
+    const nextDay = await fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(nextDay.typicalCm).toBe(28);
+    await expect(fetchLiveSnapshot(RESORT, DATE, 'upper')).rejects.toThrow(/next two/);
+  });
+
+  it('discards a provider query that crosses Japan midnight before completing', async () => {
+    vi.setSystemTime(new Date('2026-01-20T14:59:59Z'));
+    let finish!: (value: unknown) => void;
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve; })));
+    const request = fetchLiveSnapshot(RESORT, DATE, 'upper');
+    vi.setSystemTime(new Date('2026-01-20T15:00:01Z'));
+    finish({ ok: true, json: async () => threeDayResponse() });
+    await expect(request).rejects.toThrow(/date changed in Japan/);
+    expect(storage.size).toBe(0);
   });
 
   it('keeps browser cache bounded', async () => {
@@ -172,6 +227,67 @@ describe('live request and cache behavior', () => {
     controller.abort();
     await expect(request).rejects.toMatchObject({ name: 'AbortError' });
     expect(storage.size).toBe(0);
+  });
+
+  it('cancels one consumer without cancelling a shared request or the other morning', async () => {
+    let finish!: (value: unknown) => void;
+    let providerSignal!: AbortSignal;
+    const fetchMock = vi.fn().mockImplementation((_url, options: { signal: AbortSignal }) => {
+      providerSignal = options.signal;
+      return new Promise(resolve => { finish = resolve; });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const first = fetchLiveSnapshot(RESORT, DATE, 'upper', controller.signal);
+    const second = fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
+    controller.abort();
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    expect(providerSignal.aborted).toBe(false);
+    finish({ ok: true, json: async () => threeDayResponse() });
+    expect((await second).typicalCm).toBe(42);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(storage.size).toBe(1);
+  });
+
+  it('aborts only after the final consumer leaves, then permits a fresh request', async () => {
+    let providerSignal!: AbortSignal;
+    const fetchMock = vi.fn().mockImplementation((_url, options: { signal: AbortSignal }) => {
+      providerSignal = options.signal;
+      return new Promise((_, reject) => {
+        providerSignal.addEventListener('abort', () => reject(providerSignal.reason), { once: true });
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const firstController = new AbortController();
+    const secondController = new AbortController();
+    const first = fetchLiveSnapshot(RESORT, DATE, 'upper', firstController.signal);
+    const second = fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper', secondController.signal);
+    firstController.abort();
+    expect(providerSignal.aborted).toBe(false);
+    secondController.abort();
+    expect(providerSignal.aborted).toBe(true);
+    await expect(first).rejects.toMatchObject({ name: 'AbortError' });
+    await expect(second).rejects.toMatchObject({ name: 'AbortError' });
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => threeDayResponse() }));
+    expect((await fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('a manual refresh bypasses pending work without letting the old result repopulate cache', async () => {
+    let finishOld!: (value: unknown) => void;
+    const fetchMock = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
+      .mockImplementation(async () => ({ ok: true, json: async () => threeDayResponse() }));
+    vi.stubGlobal('fetch', fetchMock);
+    const oldRequest = fetchLiveSnapshot(RESORT, DATE, 'upper');
+    clearWeatherCache();
+    const fresh = await fetchLiveSnapshot(RESORT, DATE, 'upper');
+    const oldResponse = threeDayResponse();
+    oldResponse.hourly.snowfall_jma_msm = oldResponse.hourly.time.map(() => 99);
+    finishOld({ ok: true, json: async () => oldResponse });
+    await oldRequest;
+    const cached = await fetchLiveSnapshot(RESORT, DATE, 'upper');
+    expect(cached.models[0].snowfallCm).toBe(fresh.models[0].snowfallCm);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('does not substitute fictional conditions after a live failure', async () => {
