@@ -6,10 +6,18 @@ import { assembleSnapshot } from './snapshot';
 
 export const WEATHER_CACHE_TTL_MS = 45 * 60 * 1000;
 export const WEATHER_CACHE_MAX_ENTRIES = 32;
-const CACHE_VERSION = 'powder-weather-v1';
+const CACHE_VERSION = 'powder-weather-v2';
 const REQUEST_TIMEOUT_MS = 15_000;
 interface CacheEntry { key: string; storedAt: number; response: unknown }
+interface PendingRequest {
+  controller: AbortController;
+  consumers: Set<symbol>;
+  settled: boolean;
+  promise: Promise<CacheEntry>;
+}
 const memoryCache = new Map<string, CacheEntry>();
+const pendingRequests = new Map<string, PendingRequest>();
+let cacheGeneration = 0;
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -46,11 +54,7 @@ export function buildForecastUrl(resort: Resort, date: string, elevation: Elevat
   return `https://api.open-meteo.com/v1/forecast?${parameters}`;
 }
 
-/** No zero fill: every preceding-hour snow/rain sum requires all 14 expected hours. */
-export function parseForecastResponse(
-  response: unknown, resort: Resort, date: string, elevation: Elevation,
-  retrievedAt = new Date().toISOString(),
-): WeatherSnapshot {
+function providerFields(response: unknown) {
   if (!record(response) || response.error || !record(response.hourly)
     || !Array.isArray(response.hourly.time) || !record(response.hourly_units)) {
     throw new Error('The weather service returned an unreadable forecast. Please try again.');
@@ -58,8 +62,15 @@ export function parseForecastResponse(
   if (response.utc_offset_seconds !== 32400 || response.timezone !== 'Asia/Tokyo') {
     throw new Error('The weather service returned an unexpected time zone. Please try again.');
   }
-  const hourly = response.hourly;
-  const units = response.hourly_units;
+  return { hourly: response.hourly, units: response.hourly_units };
+}
+
+/** No zero fill: every preceding-hour snow/rain sum requires all 14 expected hours. */
+export function parseForecastResponse(
+  response: unknown, resort: Resort, date: string, elevation: Elevation,
+  retrievedAt = new Date().toISOString(),
+): WeatherSnapshot {
+  const { hourly, units } = providerFields(response);
   const timeIndices = new Map<string, number>();
   const duplicates = new Set<string>();
   for (const [index, time] of (hourly.time as unknown[]).entries()) {
@@ -109,9 +120,10 @@ export function parseForecastResponse(
   }, retrievedAt, warnings);
 }
 
-function cacheKey(resort: Resort, date: string, elevation: Elevation): string {
+/** Both ski mornings come from one three-day payload; the query day bounds reuse. */
+function cacheKey(resort: Resort, queryDay: string, elevation: Elevation): string {
   const meters = elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
-  return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${date}:${elevation}:${meters}`;
+  return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${queryDay}:${elevation}:${meters}`;
 }
 
 function pruneCache(now: number) {
@@ -155,8 +167,77 @@ function writeCache(entry: CacheEntry) {
 }
 
 export function clearWeatherCache() {
+  cacheGeneration++;
   memoryCache.clear();
+  // Existing consumers may finish, but a manual refresh starts its own request
+  // and an older request cannot repopulate the newly cleared cache.
+  pendingRequests.clear();
   try { globalThis.localStorage?.removeItem(CACHE_VERSION); } catch { /* Optional storage. */ }
+}
+
+async function fetchProviderPayload(
+  key: string, url: string, queryDay: string, controller: AbortController, generation: number,
+): Promise<CacheEntry> {
+  const timer = setTimeout(() => controller.abort(new DOMException('Weather request timed out', 'TimeoutError')), REQUEST_TIMEOUT_MS);
+  try {
+    const result = await fetch(url, { signal: controller.signal });
+    checkAbort(controller.signal);
+    if (!result.ok) throw new Error(`The weather service could not load forecasts (HTTP ${result.status}). Please try again.`);
+    const response: unknown = await result.json();
+    checkAbort(controller.signal);
+    const storedAt = Date.now();
+    if (japanDate(new Date(storedAt)) !== queryDay) {
+      throw new Error('The forecast date changed in Japan. Refresh the trip dates and try again.');
+    }
+    providerFields(response);
+    const entry = { key, storedAt, response };
+    if (generation === cacheGeneration) writeCache(entry);
+    return entry;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      if (controller.signal.reason instanceof DOMException && controller.signal.reason.name === 'TimeoutError') {
+        throw new Error('The weather service took too long to respond. Please try again.');
+      }
+      checkAbort(controller.signal);
+    }
+    if (error instanceof TypeError) throw new Error('The weather service could not be reached. Check your connection and try again.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function consumeRequest(key: string, request: PendingRequest, signal?: AbortSignal): Promise<CacheEntry> {
+  return new Promise((resolve, reject) => {
+    const consumer = Symbol('weather consumer');
+    let attached = true;
+    request.consumers.add(consumer);
+    const detach = () => {
+      if (!attached) return;
+      attached = false;
+      signal?.removeEventListener('abort', cancel);
+      request.consumers.delete(consumer);
+      if (request.consumers.size === 0 && !request.settled) {
+        if (pendingRequests.get(key) === request) pendingRequests.delete(key);
+        request.controller.abort();
+      }
+    };
+    const cancel = () => {
+      detach();
+      reject(signal?.reason ?? new DOMException('Request cancelled', 'AbortError'));
+    };
+    signal?.addEventListener('abort', cancel, { once: true });
+    request.promise.then((entry) => {
+      if (!attached) return;
+      detach();
+      resolve(entry);
+    }, (error: unknown) => {
+      if (!attached) return;
+      detach();
+      reject(error);
+    });
+    if (signal?.aborted) cancel();
+  });
 }
 
 export async function fetchLiveSnapshot(
@@ -165,7 +246,8 @@ export async function fetchLiveSnapshot(
   checkAbort(signal);
   const now = new Date();
   const url = buildForecastUrl(resort, date, elevation, now);
-  const key = cacheKey(resort, date, elevation);
+  const queryDay = japanDate(now);
+  const key = cacheKey(resort, queryDay, elevation);
   const cached = readCache(key, now.getTime());
   if (cached) {
     try {
@@ -176,35 +258,27 @@ export async function fetchLiveSnapshot(
       checkAbort(signal);
       memoryCache.delete(key);
       // An invalid cache is discarded; the actual provider is queried next.
-      if (error instanceof DOMException && error.name === 'AbortError') throw error;
     }
   }
-  const controller = new AbortController();
-  const cancel = () => controller.abort(signal?.reason);
-  signal?.addEventListener('abort', cancel, { once: true });
-  const timer = setTimeout(() => controller.abort(new DOMException('Weather request timed out', 'TimeoutError')), REQUEST_TIMEOUT_MS);
-  try {
-    checkAbort(signal);
-    const result = await fetch(url, { signal: controller.signal });
-    checkAbort(signal);
-    checkAbort(controller.signal);
-    if (!result.ok) throw new Error(`The weather service could not load forecasts (HTTP ${result.status}). Please try again.`);
-    const response: unknown = await result.json();
-    checkAbort(signal);
-    checkAbort(controller.signal);
-    const storedAt = Date.now();
-    const snapshot = parseForecastResponse(response, resort, date, elevation, new Date(storedAt).toISOString());
-    writeCache({ key, storedAt, response });
-    return snapshot;
-  } catch (error) {
-    checkAbort(signal);
-    if (controller.signal.aborted) throw new Error('The weather service took too long to respond. Please try again.');
-    if (error instanceof TypeError) throw new Error('The weather service could not be reached. Check your connection and try again.');
-    throw error;
-  } finally {
-    clearTimeout(timer);
-    signal?.removeEventListener('abort', cancel);
+  let request = pendingRequests.get(key);
+  if (!request) {
+    const controller = new AbortController();
+    request = {
+      controller, consumers: new Set(), settled: false,
+      promise: fetchProviderPayload(key, url, queryDay, controller, cacheGeneration),
+    };
+    pendingRequests.set(key, request);
+    const createdRequest = request;
+    const forget = () => {
+      createdRequest.settled = true;
+      if (pendingRequests.get(key) === createdRequest) pendingRequests.delete(key);
+    };
+    // Both outcomes are handled even when every consumer leaves early.
+    void request.promise.then(forget, forget);
   }
+  const entry = await consumeRequest(key, request, signal);
+  checkAbort(signal);
+  return parseForecastResponse(entry.response, resort, date, elevation, new Date(entry.storedAt).toISOString());
 }
 
 export async function getWeatherSnapshot(
