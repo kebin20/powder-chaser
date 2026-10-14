@@ -22,11 +22,16 @@ const SCENARIOS: Record<string, Scenario> = {
   furano: { snow: [8, 13, 10], temperature: -12, wind: 12, fresh: 5, depth: 150 },
 };
 
+export function hasDemoScenario(resort: Resort): boolean {
+  return Object.hasOwn(SCENARIOS, resort.id);
+}
+
 /** Winter examples follow upcoming dates for interaction, regardless of the real season. */
 export function getDemoSnapshot(
   resort: Resort, date: string, elevation: Elevation, now = new Date(),
 ): WeatherSnapshot {
-  const scenario = SCENARIOS[resort.id] ?? SCENARIOS.myoko;
+  const scenario = SCENARIOS[resort.id];
+  if (!scenario) throw new Error('This resort has no winter demo. Use live model forecasts.');
   const laterMorning = date === addDays(japanDate(now), 2);
   const warmerBase = elevation === 'base';
   const snowChange = (laterMorning ? -8 : 0) + (warmerBase ? -6 : 0);
