@@ -17,6 +17,12 @@ export function assembleSnapshot(
     updatedAt,
     updatedLabel: mode === 'demo' ? 'Fictional winter scenario' : `Retrieved ${formatJapanTime(updatedAt)}`,
     reportUpdatedLabel: report.fictional ? 'Illustrative report' : 'Not connected',
-    warnings,
+    warnings: [
+      ...warnings,
+      ...((elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null
+        ? ['Terrain elevation is not mapped. These are resort-area grid forecasts, not a measured upper/base station.'] : []),
+      ...(resort.elevationSource === 'mapped' ? ['Base and upper elevations come from map data and are approximate sampling heights.'] : []),
+      ...(resort.catalogueStatus === 'unknown' ? ['Catalogue operating status is unknown. Verify the resort is operating before planning a trip.'] : []),
+    ],
   };
 }

@@ -142,6 +142,24 @@ describe('live request and cache behavior', () => {
     expect(() => buildForecastUrl(RESORT, '2026-01-30', 'upper', NOW)).toThrow(/next two/);
   });
 
+  it('uses provider location elevation when map heights are unknown, without labelling it as a measured station', async () => {
+    const area = { ...RESORT, id: 'unmapped-test-area', upperElevationM: null, baseElevationM: null, officialReportUrl: null, elevationSource: 'unknown' as const };
+    expect(new URL(buildForecastUrl(area, DATE, 'upper', NOW)).searchParams.has('elevation')).toBe(false);
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const upper = await fetchLiveSnapshot(area, DATE, 'upper');
+    const base = await fetchLiveSnapshot(area, DATE, 'base');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(upper.elevationM).toBeNull();
+    expect(base.elevationM).toBeNull();
+    expect(upper.report.sourceUrl).toBeNull();
+    expect(upper.warnings.join(' ')).toMatch(/resort-area grid/);
+  });
+
+  it('rejects invalid known map heights rather than sending them to the provider', () => {
+    expect(() => buildForecastUrl({ ...RESORT, upperElevationM: -10 }, DATE, 'upper', NOW)).toThrow(/elevation/);
+  });
+
   it('reuses one payload for both mornings, distinguishes elevation, and expires after 45 minutes', async () => {
     const fetchMock = successfulFetch();
     vi.stubGlobal('fetch', fetchMock);

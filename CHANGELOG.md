@@ -7,6 +7,30 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.3 — 2026-10-15</strong> · Japan catalogue and snowfall history</summary>
+
+### Added
+
+- 520 Japan downhill ski areas across 35 prefectures from the open OpenSkiData catalogue, retaining the eight original curated IDs and saved favourites.
+- Search for English/Japanese names and aliases, prefecture filters, incremental list pagination, source attribution, a downloadable ODbL catalogue, and a reproducible import command.
+- An on-demand Snowfall history button with five/ten winter charts, monthly estimate totals, accessible tables, source details, retry/offline states, and separate resort-record/model-estimate datasets.
+- Verified Grand Hirafu historical resort records, preserving partial reports, reporting locations and missing winters.
+- ERA5 estimates for other locations, using complete November–April winters and keeping missing days unavailable.
+
+### Changed
+
+- Newly catalogued areas use live model forecasts rather than another resort’s fictional demo.
+- Unknown map elevations use the provider location grid with a clear resort-area label. Missing operator websites link to the source listing.
+- History loads in a separate JavaScript chunk and caches archive data locally. Failed optional chunks leave the forecast usable. The catalogue has its own hashed chunk for independent caching. Both history chunks and the catalogue work with the existing scoped offline shell.
+
+### Verification
+
+- 67 behavioural tests pass, including historical aggregation, catalogue validation, cancellation/cache handling and service-worker scopes.
+- Responsive and accessibility checks cover catalogue/favourites and separate official/estimated history views; a real archive request and cached offline reopen pass.
+
+</details>
+
+<details>
 <summary><strong>0.1.2 — 2026-10-14</strong> · Lighter assets and a wider desktop view</summary>
 
 ### Changed
