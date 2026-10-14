@@ -1,0 +1,96 @@
+name: Deploy live and staging
+
+on:
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One Pages site hosts both environments. Serialize the complete paired build
+# and deploy, so a staging push cannot race a live deployment.
+concurrency:
+  group: powder-chaser-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out live source from main
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: live-source
+          persist-credentials: false
+      - name: Check out staging source from staging
+        uses: actions/checkout@v6
+        with:
+          ref: staging
+          path: staging-source
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            live-source/package-lock.json
+            staging-source/package-lock.json
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+      - name: Install live dependencies
+        working-directory: live-source
+        run: npm ci
+      - name: Check live source
+        working-directory: live-source
+        run: npm run check
+      - name: Test live source
+        working-directory: live-source
+        run: npm test
+      - name: Build live
+        working-directory: live-source
+        env:
+          VITE_APP_ENV: production
+          VITE_BASE_PATH: /powder-chaser/
+        run: npm run build
+      - name: Install staging dependencies
+        working-directory: staging-source
+        run: npm ci
+      - name: Check staging source
+        working-directory: staging-source
+        run: npm run check
+      - name: Test staging source
+        working-directory: staging-source
+        run: npm test
+      - name: Build staging
+        working-directory: staging-source
+        env:
+          VITE_APP_ENV: staging
+          VITE_BASE_PATH: /powder-chaser/staging/
+        run: npm run build
+      - name: Assemble both environments
+        run: |
+          mkdir -p _site/staging
+          cp -a live-source/dist/. _site/
+          cp -a staging-source/dist/. _site/staging/
+          touch _site/.nojekyll
+      - name: Upload combined Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy both environments
+        id: deployment
+        uses: actions/deploy-pages@v4
