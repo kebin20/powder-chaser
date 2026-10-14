@@ -1,6 +1,6 @@
 # Powder Chaser
 
-<img src="public/icons/icon-192.png" alt="Powder Chaser mountain and snowflake icon" width="80" height="80" />
+<img src="public/icons/icon-alpine-192.png" alt="Powder Chaser outlined alpine mountain icon" width="80" height="80" />
 
 A calmer way to choose your next powder day in Japan. Compare overnight snowfall across three weather models, see a clear **Go / Maybe / Skip** recommendation, and check the evidence when a trip is borderline.
 
@@ -19,7 +19,7 @@ The deployment environment and forecast mode are separate: both previews offer a
 - Expandable model comparison, official resort links, and data limitations.
 - A personal minimum-snowfall threshold and favourite resorts saved in your browser.
 - Search by resort or region, save a personal shortlist, and compare the next two mornings in Plan a trip.
-- Original favicon, Apple home-screen icon, web app manifest, and an offline app shell.
+- Outlined alpine favicon, Apple home-screen icon, web app manifest, and an offline app shell.
 
 Initial coverage: Akakura Kanko, Kagura, Hakuba Happo-one, Nozawa Onsen, Madarao Mountain, Niseko Grand Hirafu, Rusutsu, and Furano. Coordinates and elevations are representative forecast sampling points, not exact lift or observation-station locations.
 
@@ -98,6 +98,10 @@ CI installs locked dependencies, type-checks, runs tests, and builds pull reques
 
 The workflow uses GitHub's standard token with Pages/OIDC permissions; it requires no deployment secret. GitHub Pages uses the **GitHub Actions** publishing source, and the `github-pages` environment must permit deployments triggered by both `main` and `staging`. Pull requests run CI and do not deploy. See [GitHub's Pages workflow documentation](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages).
 
+Both branches must exist before the first deployment. If a bootstrap push does not create a run, open **Actions → Deploy live and staging → Run workflow** on `main`. This publishes the same paired artifact as an automatic deployment.
+
+If a pull request's CI run is missing, open **Actions → CI → Run workflow** and select that pull request's **head branch**. After validation completes, the manual result reporter publishes its actual success or failure as a `validate` commit status for the tested SHA, linking to the run's logs. GitHub does not evaluate manual workflow job checks for PR branch protection, so this status carries the verified outcome; see [GitHub's required-check documentation](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks). A new commit needs a new run. If a manual run fails, rerun manual CI after resolving the failure so its status is updated.
+
 ## Add to an iPhone home screen
 
 1. Open the [live app](https://kebin20.github.io/powder-chaser/) in Chrome on your iPhone.
@@ -137,11 +141,11 @@ Integrate licensed Japanese forecast feeds and timestamped resort reports, expan
 ## Changelog
 
 <details>
-<summary>0.1.0 · 14 October 2026 · First usable demo</summary>
+<summary>0.1.1 · 14 October 2026 · Clearer hero and alpine identity</summary>
 
-- Static Calm Alpine illustrations and resort dashboard.
-- Sample/live forecast modes with three-model comparison and explainable recommendations.
-- Live and staging development workflow, documentation, favicon, and home-screen icons.
+- Clearer spacing for static hero artwork, captions, and snow-depth report notes.
+- A visible official resort website link and a more prominent trip verdict.
+- Matching outlined alpine browser and home-screen icons with refreshed asset URLs.
 
 [Open the full changelog](CHANGELOG.md). Detailed releases are collapsible so this README stays easy to scan.
 

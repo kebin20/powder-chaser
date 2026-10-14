@@ -5,7 +5,10 @@ const CACHE_PREFIX = `powder-chaser:${APP_URL.href}:`;
 const CACHE_NAME = `${CACHE_PREFIX}${RELEASE}`;
 const INDEX_URL = new URL('index.html', APP_URL).href;
 const SHELL_PATHS = [
-  'manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png',
+  'manifest.webmanifest', 'icons/favicon-alpine.svg', 'icons/favicon-alpine.ico',
+  'icons/icon-alpine-32.png', 'icons/apple-touch-icon-alpine.png',
+  'icons/icon-alpine-192.png', 'icons/icon-alpine-512.png',
+  'icons/maskable-alpine-192.png', 'icons/maskable-alpine-512.png',
   'images/snow-cloud.png', 'images/snowy-tree.png',
 ];
 
