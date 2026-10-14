@@ -7,6 +7,21 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.1 — 2026-10-14</strong> · Clearer hero and alpine identity</summary>
+
+### Changed
+
+- Gave the weather illustration and caption separate rows with consistent spacing inside the compact static hero.
+- Reserved clear space below the snow-depth illustration for its report note.
+- Added a visible official resort website link beside the resort selection area.
+- Made the Go / Maybe / Skip badge larger and easier to spot.
+- Introduced a simple outlined alpine mark in the header's blue across browser, Apple home-screen, standard, and maskable icons.
+- Used new icon filenames to refresh browser favicons and updated the offline shell's icon precache to match.
+- Added reporting of manual CI results as commit statuses for the exact tested SHA, so validated manual runs can satisfy required PR checks when an automatic run is missing.
+
+</details>
+
+<details>
 <summary><strong>0.1.0 — 2026-10-14</strong> · First usable demo</summary>
 
 ### Added

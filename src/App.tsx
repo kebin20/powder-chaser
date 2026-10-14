@@ -72,7 +72,7 @@ function useSnapshot(resort: Resort, date: string, elevation: Elevation, mode: D
   return { snapshot: demo || (state.key === key ? state.data : null), error: state.key === key ? state.error : null, loading: mode === 'live' && enabled && (state.key !== key || (!state.data && !state.error)) };
 }
 function Status({ decision }: { decision: PowderDecision }) {
-  return <span className={`status ${decision.status}`}>{decision.status === 'go' && <Check size={11} aria-hidden="true" />}{decision.status.toUpperCase()}</span>;
+  return <span className={`status ${decision.status}`}>{decision.status === 'go' && <Check size={14} aria-hidden="true" />}{decision.status.toUpperCase()}</span>;
 }
 function Hero({ snapshot, resort, elevation, loading }: { snapshot: WeatherSnapshot | null; resort: Resort; elevation: Elevation; loading: boolean }) {
   const [slide, setSlide] = useState(0);
@@ -96,10 +96,10 @@ function Hero({ snapshot, resort, elevation, loading }: { snapshot: WeatherSnaps
         {rain ? <CloudRain className="alternate-weather" size={108} strokeWidth={1.25} aria-hidden="true" /> : quiet ? <CloudSun className="alternate-weather" size={104} strokeWidth={1.25} aria-hidden="true" /> : <img className="weather-illustration" src={`${BASE}images/snow-cloud.png`} alt="" />}
         <div className="hero-caption"><h2>{label}</h2><p>{elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {resort.region}</p></div>
       </div> : <div className="hero-slide depth-slide" role="group" aria-label="Total snow depth, slide 2 of 2">
-        <img className="tree-illustration" src={`${BASE}images/snowy-tree.png`} alt="" />
+        <div className="depth-scene"><img className="tree-illustration" src={`${BASE}images/snowy-tree.png`} alt="" />
         <div className="depth-label"><span className="hero-eyebrow">TOTAL SNOW DEPTH</span><div className="depth-value">{number(depth)}<span>cm</span></div><p>{depth === null ? 'Official report needed' : snapshot?.report.fictional ? 'Illustrative resort report' : 'Resort reported'}</p></div>
         {depth !== null && <div className="ruler" aria-label={`${number(depth)} centimeters, on a scale of zero to ${rulerMax}`}><div className="ruler-fill" style={{ height: `${Math.min(depth / rulerMax * 100, 100)}%` }} />{[0, 1, 2, 3].map(tick => <span key={tick} style={{ bottom: `${tick / 3 * 100}%` }}>{Math.round(rulerMax * tick / 3)}</span>)}<i style={{ bottom: `${Math.min(depth / rulerMax * 100, 100)}%` }} /></div>}
-        <p className="depth-footnote">{depth === null ? 'Snow depth is separate from fresh powder.' : `${snapshot?.report.location} · total depth, not new snow`}</p>
+        </div><div className="depth-footnote"><p>{depth === null ? 'Snow depth is separate from fresh powder.' : 'Total depth, not fresh snowfall.'}</p>{depth !== null && <p className="depth-location">{snapshot?.report.location}</p>}</div>
       </div>}
     </section>
     <nav className="hero-navigation" aria-label="Hero slides" onKeyDown={event => {
@@ -188,7 +188,7 @@ export default function App() {
       {!online && <div className="offline-banner" role="status"><WifiOff size={14} />Offline · cached pages are available; forecasts need a connection.</div>}
       <main id="main-content">
       {view === 'forecast' ? <>
-        <div className="forecast-heading"><div><div className="location-line"><MapPin size={11} />{resort.region}, Japan<span className={`mode-label ${preferences.mode}`}>{preferences.mode === 'demo' ? 'DEMO' : 'LIVE MODELS'}</span></div><button className="resort-heading" onClick={() => explorer.current?.showModal()} aria-label={`Choose resort, currently ${resort.name}`}><h1>{resort.name}</h1><ChevronDown size={19} /></button></div><button className={`icon-button favorite-button ${preferences.favorites.includes(resort.id) ? 'saved' : ''}`} onClick={() => toggleFavorite(resort.id)} aria-label={`${preferences.favorites.includes(resort.id) ? 'Remove from' : 'Add to'} favorites`} aria-pressed={preferences.favorites.includes(resort.id)}><Star size={20} fill={preferences.favorites.includes(resort.id) ? 'currentColor' : 'none'} /></button></div>
+        <div className="forecast-heading"><div><div className="location-line"><MapPin size={11} />{resort.region}, Japan<span className={`mode-label ${preferences.mode}`}>{preferences.mode === 'demo' ? 'DEMO' : 'LIVE MODELS'}</span></div><button className="resort-heading" onClick={() => explorer.current?.showModal()} aria-label={`Choose resort, currently ${resort.name}`}><h1>{resort.name}</h1><ChevronDown size={19} /></button><a className="resort-homepage" href={resort.officialUrl} target="_blank" rel="noreferrer">Resort website<ExternalLink size={11} aria-hidden="true" /></a></div><button className={`icon-button favorite-button ${preferences.favorites.includes(resort.id) ? 'saved' : ''}`} onClick={() => toggleFavorite(resort.id)} aria-label={`${preferences.favorites.includes(resort.id) ? 'Remove from' : 'Add to'} favorites`} aria-pressed={preferences.favorites.includes(resort.id)}><Star size={20} fill={preferences.favorites.includes(resort.id) ? 'currentColor' : 'none'} /></button></div>
         <div className="date-selector" role="group" aria-label="Ski morning">{dates.map((item, index) => <button key={item.id} className={dateIndex === index ? 'active' : ''} aria-pressed={dateIndex === index} onClick={() => setDateIndex(index)}><span>{item.label}</span><small>{item.shortLabel}</small></button>)}<span className="date-timezone">JST</span></div>
         <Hero snapshot={data.snapshot} resort={resort} elevation={preferences.elevation} loading={data.loading} />
         {data.loading ? <div className="loading-card" role="status"><Snowflake size={23} /><h2>Checking three forecasts</h2><p>For {date.shortLabel}, {preferences.elevation} mountain.</p></div> : data.error ? <div className="error-card" role="alert"><h2>Forecasts couldn’t be loaded.</h2><p>{data.error}</p><div className="error-actions"><button className="primary-button" onClick={reload}>Try again</button><button className="text-button" onClick={() => patch({ mode: 'demo' })}>Explore the demo</button></div></div> : data.snapshot && decision ? <>

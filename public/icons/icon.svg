@@ -1,11 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <title>Powder Chaser</title>
-  <rect width="512" height="512" fill="#dceef2"/>
-  <path d="M64 373 213 138l93 147 55-82 99 170Z" fill="#183e4b"/>
-  <path d="m213 138 60 95-35-12-25 26-25-26-35 12Z" fill="#fff"/>
-  <path d="m361 203 40 66-24-7-16 19-16-19-24 7Z" fill="#fff"/>
-  <path d="M64 373c65-30 114-35 167-11 75 34 140 13 229-10v39H64Z" fill="#fff"/>
-  <g fill="none" stroke="#568e9d" stroke-linecap="round" stroke-width="12">
-    <path d="M370 95v60M344 110l52 30M344 140l52-30"/>
+  <title>Powder Chaser outlined alpine mark</title>
+  <rect width="512" height="512" fill="#f5f8fa"/>
+  <g fill="none" stroke="#517c94" stroke-width="28" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M80 382 188 104 272 256 338 170 432 382Z"/>
+    <path d="M118 298c50-24 91-17 138 16s94 27 141-12"/>
   </g>
 </svg>
