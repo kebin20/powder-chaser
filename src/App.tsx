@@ -8,25 +8,16 @@ import { getDemoSnapshot, hasDemoScenario } from './data/demo';
 import { evaluatePowder } from './lib/decision';
 import { formatJapanTime, getTripDates } from './lib/dates';
 import { clearWeatherCache, fetchLiveSnapshot, WEATHER_CACHE_TTL_MS } from './lib/weather';
+import { normalizePreferences, type Preferences } from './lib/preferences';
 import type { DataMode, Elevation, PowderDecision, Resort, TripDate, WeatherSnapshot } from './types';
 
 const SnowfallHistory = lazy(() => import('./components/SnowfallHistory'));
 const BASE = import.meta.env.BASE_URL;
 const storeKey = `powder-chaser:v1:${BASE}`;
 type View = 'forecast' | 'favorites' | 'plan';
-interface Preferences { favorites: string[]; resortId: string; elevation: Elevation; threshold: number; mode: DataMode }
-const defaults: Preferences = { favorites: ['myoko', 'nozawa'], resortId: 'myoko', elevation: 'upper', threshold: 20, mode: 'demo' };
 function readPreferences(): Preferences {
-  try {
-    const value = JSON.parse(localStorage.getItem(storeKey) || '{}');
-    return {
-      favorites: Array.isArray(value.favorites) ? value.favorites.filter((id: unknown) => RESORTS.some(r => r.id === id)) : defaults.favorites.filter(id => RESORTS.some(r => r.id === id)),
-      resortId: RESORTS.some(r => r.id === value.resortId) ? value.resortId : RESORTS.find(r => r.id === defaults.resortId)?.id || RESORTS[0].id,
-      elevation: value.elevation === 'base' ? 'base' : 'upper',
-      threshold: Number.isFinite(value.threshold) && value.threshold >= 5 && value.threshold <= 50 ? value.threshold : 20,
-      mode: value.mode === 'live' ? 'live' : 'demo',
-    };
-  } catch { return { ...defaults, resortId: RESORTS.find(r => r.id === defaults.resortId)?.id || RESORTS[0].id }; }
+  try { return normalizePreferences(JSON.parse(localStorage.getItem(storeKey) || '{}')); }
+  catch { return normalizePreferences(null); }
 }
 function number(value: number | null, decimals = 0) { return value === null ? '—' : value.toFixed(decimals); }
 function snowRange(snapshot: WeatherSnapshot) {

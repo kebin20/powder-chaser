@@ -28,7 +28,9 @@ The eight curated starter resorts are Akakura Kanko, Kagura, Hakuba Happo-one, N
 
 ## Data: sample vs live
 
-**Sample mode** starts with fictional winter conditions so the UI can be explored at any time of year. Forecasts, snowfall reports, snow depth, and lift operations in this mode are illustrative. Displaying them against an upcoming date does not make them a real forecast.
+**Live forecasts are the default.** The upgrade switches the old automatically saved demo setting to live once, preserving favourites, resort, elevation and threshold. Choosing Winter Demo explicitly afterwards remains saved.
+
+**Sample mode**, available in Preferences, provides fictional winter conditions so the UI can be explored at any time of year. Forecasts, snowfall reports, snow depth, and lift operations in this mode are illustrative. Displaying them against an upcoming date does not make them a real forecast.
 
 **Live mode** requests three explicitly selected models through [Open-Meteo](https://open-meteo.com/en/docs): JMA MSM (`jma_msm`), ECMWF IFS (`ecmwf_ifs025`), and GFS (`gfs_global`). These are model forecasts provided through one aggregator; they are not Yahoo Weather, tenki.jp, or Weathernews feeds. No API key is needed for this initial non-commercial demo. Review [Open-Meteo's terms](https://open-meteo.com/en/terms) before commercial use or larger-scale deployment.
 
@@ -174,11 +176,11 @@ Integrate licensed Japanese forecast feeds and timestamped resort reports, impro
 ## Changelog
 
 <details>
-<summary>0.1.3 · 15 October 2026 · Japan catalogue and snowfall history</summary>
+<summary>0.1.4 · 15 October 2026 · Live forecasts by default</summary>
 
-- Search 520 Japan downhill areas by English/Japanese name or prefecture and save favourites.
-- Open five/ten winter history charts with separate resort-record and model-estimate views.
-- Lazy history loading, paginated resort lists, and explicit handling of missing map metadata.
+- Start in Live Models mode, including a one-time upgrade of the old saved demo default.
+- Preserve favourites, resort selection, altitude preference and snowfall threshold.
+- Winter Demo remains available as an explicit choice in Preferences.
 
 [Open the full changelog](CHANGELOG.md). Detailed releases are collapsible so this README stays easy to scan.
 
