@@ -7,6 +7,16 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.4 — 2026-10-15</strong> · Live forecasts by default</summary>
+
+- Start fresh visits in Live Models mode.
+- Migrate the old automatically saved demo setting to live once, preserving favourites, selected resort, elevation and snowfall threshold.
+- Keep Winter Demo as an explicit saved choice after the upgrade.
+- Show a load error when live forecasts fail; never replace them with fictional snow automatically.
+
+</details>
+
+<details>
 <summary><strong>0.1.3 — 2026-10-15</strong> · Japan catalogue and snowfall history</summary>
 
 ### Added
