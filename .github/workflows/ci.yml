@@ -15,7 +15,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # GitHub excludes workflow_dispatch job checks from PR protection. Report
+  # the actual validation result as a commit status for manual runs instead.
+  manual_status_start:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Mark manual validation pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POWDER_REPO: ${{ github.repository }}
+          POWDER_SHA: ${{ github.sha }}
+          POWDER_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api --method POST "repos/${POWDER_REPO}/statuses/${POWDER_SHA}" \
+            -f state=pending -f context=validate \
+            -f description="Manual CI validation is running" \
+            -f target_url="$POWDER_RUN_URL" --silent
+
   validate:
+    needs: manual_status_start
+    if: ${{ always() && (needs.manual_status_start.result == 'success' || needs.manual_status_start.result == 'skipped') }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -33,3 +55,28 @@ jobs:
         run: npm test
       - name: Build app
         run: npm run build
+
+  manual_status_result:
+    needs: [manual_status_start, validate]
+    if: ${{ always() && github.event_name == 'workflow_dispatch' && needs.manual_status_start.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      statuses: write
+    steps:
+      - name: Report the actual manual validation result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          POWDER_REPO: ${{ github.repository }}
+          POWDER_SHA: ${{ github.sha }}
+          POWDER_RESULT: ${{ needs.validate.result }}
+          POWDER_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          case "$POWDER_RESULT" in
+            success) powder_state=success ;;
+            failure) powder_state=failure ;;
+            *) powder_state=error ;;
+          esac
+          gh api --method POST "repos/${POWDER_REPO}/statuses/${POWDER_SHA}" \
+            -f state="$powder_state" -f context=validate \
+            -f description="Manual CI validation: $POWDER_RESULT" \
+            -f target_url="$POWDER_RUN_URL" --silent

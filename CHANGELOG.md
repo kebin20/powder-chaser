@@ -17,6 +17,7 @@ No unreleased changes recorded.
 - Made the Go / Maybe / Skip badge larger and easier to spot.
 - Introduced a simple outlined alpine mark in the header's blue across browser, Apple home-screen, standard, and maskable icons.
 - Used new icon filenames to refresh browser favicons and updated the offline shell's icon precache to match.
+- Added reporting of manual CI results as commit statuses for the exact tested SHA, so validated manual runs can satisfy required PR checks when an automatic run is missing.
 
 </details>
 

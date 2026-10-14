@@ -100,6 +100,8 @@ The workflow uses GitHub's standard token with Pages/OIDC permissions; it requir
 
 Both branches must exist before the first deployment. If a bootstrap push does not create a run, open **Actions → Deploy live and staging → Run workflow** on `main`. This publishes the same paired artifact as an automatic deployment.
 
+If a pull request's CI run is missing, open **Actions → CI → Run workflow** and select that pull request's **head branch**. After validation completes, the manual result reporter publishes its actual success or failure as a `validate` commit status for the tested SHA, linking to the run's logs. GitHub does not evaluate manual workflow job checks for PR branch protection, so this status carries the verified outcome; see [GitHub's required-check documentation](https://docs.github.com/en/pull-requests/how-tos/merge-and-close-pull-requests/troubleshooting-required-status-checks). A new commit needs a new run. If a manual run fails, rerun manual CI after resolving the failure so its status is updated.
+
 ## Add to an iPhone home screen
 
 1. Open the [live app](https://kebin20.github.io/powder-chaser/) in Chrome on your iPhone.
