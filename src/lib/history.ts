@@ -216,7 +216,9 @@ function officialHistory(resort: Resort, elevation: Elevation, range: HistoryRan
 function cacheKey(resort: Resort, elevation: Elevation, range: HistoryRange, now: Date) {
   const meters = validateSelection(resort, elevation);
   const windows = getCompletedSeasonWindows(range, now);
-  return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${elevation}:${meters}:${range}:${windows.at(-1)!.season}`;
+  // The provider samples a height, not the UI's base/upper label. Both labels
+  // produce the same request when their heights match or are both unknown.
+  return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${meters ?? 'auto'}:${range}:${windows.at(-1)!.season}`;
 }
 function pruneCache(now: number) {
   for (const [key, entry] of memoryCache) {
@@ -271,10 +273,20 @@ export async function fetchSnowfallHistory(
   if (sourceKind !== 'estimate') throw new Error('Choose resort records or model estimates.');
   const key = cacheKey(resort, elevation, range, now);
   const generation = cacheGeneration;
-  const cached = readCache(key, now.getTime());
-  if (cached) {
-    try { return parseHistoryResponse(cached.response, resort, elevation, range, new Date(cached.storedAt).toISOString(), now); }
-    catch { memoryCache.delete(key); /* Invalid browser storage is replaced by a fresh provider response. */ }
+  // A complete ten-winter payload contains the five-winter selection too.
+  // Reparse for this caller so the dates, height label and summaries stay exact.
+  const cachedRanges: HistoryRange[] = range === 5 ? [5, 10] : [10];
+  for (const cachedRange of cachedRanges) {
+    const candidateKey = cacheKey(resort, elevation, cachedRange, now);
+    const cached = readCache(candidateKey, now.getTime());
+    if (!cached) continue;
+    try {
+      const history = parseHistoryResponse(cached.response, resort, elevation, range, new Date(cached.storedAt).toISOString(), now);
+      if (history.seasons.every((season) => season.complete)) return history;
+    } catch { /* Invalid browser storage is replaced by a fresh provider response. */ }
+    // A syntactically valid payload may still have been corrupted to contain
+    // missing days. Never retain an incomplete requested winter for seven days.
+    memoryCache.delete(candidateKey);
   }
   const controller = new AbortController();
   const cancel = () => controller.abort(signal?.reason ?? new DOMException('Request cancelled', 'AbortError'));
