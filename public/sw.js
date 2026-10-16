@@ -22,6 +22,21 @@ function isAppResource(url) {
   return !relativePath.startsWith('staging/');
 }
 
+// Runtime caching is optional: storage limits or browser privacy settings must
+// never turn a successful network response into a failed page or asset request.
+// Installation remains strict so an incomplete offline shell cannot activate.
+async function openRuntimeCache() {
+  try { return await caches.open(CACHE_NAME); } catch { return null; }
+}
+
+async function readRuntimeCache(cache, request) {
+  try { return await cache?.match(request); } catch { return undefined; }
+}
+
+async function writeRuntimeCache(cache, request, response) {
+  try { await cache?.put(request, response.clone()); } catch { /* Continue online without caching. */ }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
@@ -59,12 +74,11 @@ self.addEventListener('fetch', (event) => {
       try {
         const response = await fetch(request);
         if (response.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          await cache.put(INDEX_URL, response.clone());
+          await writeRuntimeCache(await openRuntimeCache(), INDEX_URL, response);
         }
         return response;
       } catch {
-        return (await caches.match(INDEX_URL)) ?? Response.error();
+        return (await readRuntimeCache(await openRuntimeCache(), INDEX_URL)) ?? Response.error();
       }
     })());
     return;
@@ -75,12 +89,12 @@ self.addEventListener('fetch', (event) => {
   if (!['script', 'style', 'image', 'font', 'manifest'].includes(request.destination)) return;
   const isHashedAsset = /\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.[^/]+$/.test(url.pathname);
   event.respondWith((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    const cached = await cache.match(request);
+    const cache = await openRuntimeCache();
+    const cached = await readRuntimeCache(cache, request);
     if ((isHashedAsset || RELEASE_URLS.has(url.href)) && cached) return cached;
     try {
       const response = await fetch(request);
-      if (response.ok) await cache.put(request, response.clone());
+      if (response.ok) await writeRuntimeCache(cache, request, response);
       return response;
     } catch {
       return cached ?? Response.error();

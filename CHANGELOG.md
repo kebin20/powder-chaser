@@ -7,6 +7,31 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.5 — 2026-10-17</strong> · Reliability and smaller forecast downloads</summary>
+
+### Improved
+
+- Request 38 hourly forecast readings covering both overnight ski windows, instead of 72. A measured Akakura Kanko response shrank from 6,294 to 3,745 bytes with identical normalised forecast values.
+- Reuse complete five-winter subsets from cached ten-winter archive responses. Sampling heights share history payloads when the underlying provider request is identical.
+- Render resort-chooser result rows only while it is open.
+
+### Fixed
+
+- Retry failed live forecasts after the connection returns without repeated focus-based retries.
+- Update the two upcoming ski dates when the app resumes after Japan midnight.
+- Preserve successful network responses when service-worker cache storage fails, and use the active release's shell for offline navigation.
+- Keep up to one decimal place in detailed history totals, monthly values and data tables; chart labels and headline summaries remain rounded.
+- Keep dialogs open when their inner padding is clicked, retain outside-backdrop/Escape dismissal, and give them explicit accessible titles.
+- Show a neutral cloud for loading, unavailable and incomplete forecasts rather than implying incoming snow.
+
+### Verification
+
+- 93 behavioural tests pass, including cache-storage failures, precise history totals, archive subset reuse and bounded forecast query windows.
+- Production builds, responsive browser checks and accessibility checks pass. See [audit conditions and measured results](docs/audit-0.1.5.md).
+
+</details>
+
+<details>
 <summary><strong>0.1.4 — 2026-10-15</strong> · Live forecasts by default</summary>
 
 - Start fresh visits in Live Models mode.

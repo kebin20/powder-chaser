@@ -9,7 +9,7 @@ A calmer way to choose your next powder day in Japan. Compare overnight snowfall
 | Live app | [Open Powder Chaser](https://kebin20.github.io/powder-chaser/) | [`main`](https://github.com/kebin20/powder-chaser/tree/main) |
 | Staging | [Open staging demo](https://kebin20.github.io/powder-chaser/staging/) | [`staging`](https://github.com/kebin20/powder-chaser/tree/staging) |
 
-The deployment environment and forecast mode are separate: both previews offer a clearly labelled sample mode and an optional live forecast mode. Live and staging keep separate browser preferences and favourite resorts.
+The deployment environment and forecast mode are separate: both previews start with live forecasts and offer a clearly labelled Winter Demo in Preferences. Live and staging keep separate browser preferences and favourite resorts.
 
 ## Features
 
@@ -97,11 +97,11 @@ The two static hero illustrations use **53,450 bytes combined**, down from **252
 
 The build records every compiled asset for the service worker, including images and any deferred chunks, and deduplicates entry-point URLs before precaching. Known assets in the current release are served from the cache first. Live and staging keep separate offline caches, and the worker bypasses external weather requests.
 
-Live forecasting shares one three-day provider response across both upcoming ski mornings for the same resort, elevation, and Japan query date. The **45-minute cache** holds at most **32 responses** and does not reuse a previous Japan query day's entry after midnight. Concurrent views share a request; cancelling one view does not cancel another view's forecast.
+Live forecasting shares one bounded **38-hour provider response** across both upcoming ski mornings for the same resort, elevation, and Japan query date. It requests only the hourly readings needed for the two overnight windows, instead of all 72 hours of a three-day response. The **45-minute cache** holds at most **32 responses** and does not reuse a previous Japan query day's entry after midnight. Concurrent views share a request; cancelling one view does not cancel another view's forecast. Failed loads retry once when the connection returns, and resuming the app updates the ski dates immediately after Japan midnight.
 
 Desktop screens use a wider main panel with larger text, a taller hero, and side-by-side forecast and planning cards. Mobile keeps its compact hero and bottom navigation. Keyboard users can skip to the main content; settings are labelled, and each view has one visible main heading.
 
-The catalogue has its own content-hashed data chunk for independent caching across UI updates; it is still part of the initial download. The history view is a separate JavaScript chunk and only requests archive data after it is opened. Catalogue lists show 24 rows at a time and search the full local dataset. See the [0.1.2 performance audit](docs/performance.md) for its benchmark conditions and results; the expanded catalogue and history feature were added after that benchmark. Asset sizes describe downloaded files, not a guaranteed page-load time on every connection.
+The catalogue has its own content-hashed data chunk for independent caching across UI updates; it is still part of the initial download. The history view is a separate JavaScript chunk and only requests archive data after it is opened. Catalogue lists show 24 rows at a time and search the full local dataset. The closed resort chooser does not render its result rows. A cached ten-winter history can serve its complete five-winter subset without another archive request. See the [0.1.2 performance audit](docs/performance.md) for its benchmark conditions and results; the expanded catalogue and history feature were added after that benchmark. The [0.1.5 reliability and performance audit](docs/audit-0.1.5.md) records the latest measured changes and checks. Asset sizes describe downloaded files, not a guaranteed page-load time on every connection.
 
 ## Development and previews
 
@@ -129,7 +129,7 @@ If a pull request's CI run is missing, open **Actions → CI → Run workflow** 
 
 The app supplies an opaque **180 × 180 Apple touch icon**, 192/512 px web-app icons, maskable variants, and a standalone manifest. These assets use environment-relative paths, so live and staging each install with the correct URL. The staging installation is named **Powder Staging** to help distinguish it on your home screen. See [Google's Chrome iOS instructions](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DiOS&hl=en).
 
-The service worker precaches the static shell and compiled app assets, with separate caches for live and staging. It serves known release assets from the cache first and does not cache weather responses. Offline access can reopen the interface; it cannot retrieve a current forecast. Close existing app tabs and reopen after an update so a waiting service worker can activate.
+The service worker precaches the static shell and compiled app assets, with separate caches for live and staging. It serves known release assets from the cache first and does not cache weather responses. Runtime cache failures do not discard a successful network download. Offline access can reopen the interface; it cannot retrieve a current forecast. Close existing app tabs and reopen after an update so a waiting service worker can activate.
 
 ## Project map
 
@@ -153,6 +153,7 @@ scripts/
   import-japan-resorts.mjs Reproducible licensed catalogue import
 docs/
   performance.md          Earlier performance benchmark conditions and results
+  audit-0.1.5.md           Reliability fixes and latest measured improvements
   resort-catalogue.md      Catalogue coverage, sources, licence and import
   history.md              Resort records, estimate method and cache behaviour
 .github/
@@ -176,11 +177,13 @@ Integrate licensed Japanese forecast feeds and timestamped resort reports, impro
 ## Changelog
 
 <details>
-<summary>0.1.4 · 15 October 2026 · Live forecasts by default</summary>
+<summary>0.1.5 · 17 October 2026 · Reliability and smaller forecast downloads</summary>
 
-- Start in Live Models mode, including a one-time upgrade of the old saved demo default.
-- Preserve favourites, resort selection, altitude preference and snowfall threshold.
-- Winter Demo remains available as an explicit choice in Preferences.
+- Download only the 38 hourly readings needed for both ski mornings.
+- Recover failed forecasts after reconnecting and update ski dates when the app resumes after midnight.
+- Preserve successful downloads when browser caching fails.
+- Reuse complete history subsets, preserve detailed snowfall decimals, and fix dialog padding clicks.
+- Verify mobile/desktop layouts, accessibility, and 93 behavioural tests.
 
 [Open the full changelog](CHANGELOG.md). Detailed releases are collapsible so this README stays easy to scan.
 

@@ -82,6 +82,13 @@ describe('historical daily snowfall aggregation', () => {
     const history = parseHistoryResponse(response(5, 0), RESORT, 'upper', 5, NOW.toISOString(), NOW);
     expect(history.seasons.every((season) => season.complete && season.totalCm === 0)).toBe(true);
   });
+  it('retains tenths of a centimeter in winter and monthly totals', () => {
+    const payload = response(5, 0);
+    payload.daily.snowfall_sum[payload.daily.time.indexOf('2025-11-01')] = 0.4;
+    const season = parseHistoryResponse(payload, RESORT, 'upper', 5, NOW.toISOString(), NOW).seasons.at(-1)!;
+    expect(season.totalCm).toBe(0.4);
+    expect(season.monthly[0].totalCm).toBe(0.4);
+  });
   it('a null day invalidates the full season and only that month, with no zero fill', () => {
     const payload = response();
     payload.daily.snowfall_sum[payload.daily.time.indexOf('2024-01-10')] = null;
@@ -168,6 +175,83 @@ describe('source separation and bounded history requests', () => {
     await fetchSnowfallHistory(RESORT, 'upper', 5);
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(storage.has('powder-history-v1')).toBe(true);
+  });
+  it('reuses ten cached winters for five and recalculates the requested summaries', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => response(10) }); vi.stubGlobal('fetch', fetchMock);
+    const ten = await fetchSnowfallHistory(RESORT, 'upper', 10);
+    vi.setSystemTime(new Date(NOW.getTime() + 1000));
+    const five = await fetchSnowfallHistory(RESORT, 'upper', 5);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(five.seasons).toEqual(ten.seasons.slice(-5));
+    expect(five.retrievedAt).toBe(ten.retrievedAt);
+    expect(five.seasons[0].season).toBe('2021/22');
+    expect(JSON.parse(storage.get('powder-history-v1')!)).toHaveLength(1);
+  });
+  it('does not mistake a cached five-winter payload for a ten-winter history', async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => response(5) })
+      .mockResolvedValueOnce({ ok: true, json: async () => response(10) }); vi.stubGlobal('fetch', fetchMock);
+    await fetchSnowfallHistory(RESORT, 'upper', 5);
+    const ten = await fetchSnowfallHistory(RESORT, 'upper', 10);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(ten.seasons).toHaveLength(10);
+    expect(ten.seasons[0]).toMatchObject({ season: '2016/17', complete: true });
+  });
+  it('shares identical automatic or known heights while preserving caller metadata', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => response(10) }); vi.stubGlobal('fetch', fetchMock);
+    const unknown = { ...RESORT, baseElevationM: null, upperElevationM: null };
+    await fetchSnowfallHistory(unknown, 'upper', 10);
+    const automaticBase = await fetchSnowfallHistory(unknown, 'base', 5);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(automaticBase).toMatchObject({ elevation: 'base', elevationM: null });
+    expect(automaticBase.seasons[0].location).toMatch(/Resort area/);
+    const equal = { ...RESORT, id: 'equal-heights', baseElevationM: 1000, upperElevationM: 1000 };
+    const upper = await fetchSnowfallHistory(equal, 'upper', 10);
+    const base = await fetchSnowfallHistory(equal, 'base', 5);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(upper.seasons[0].location).toMatch(/Upper mountain reference/);
+    expect(base).toMatchObject({ elevation: 'base', elevationM: 1000 });
+    expect(base.seasons[0].location).toMatch(/Base reference/);
+  });
+  it('expires a superset at seven days instead of renewing its timestamp on reuse', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => response(10) }); vi.stubGlobal('fetch', fetchMock);
+    const first = await fetchSnowfallHistory(RESORT, 'upper', 10);
+    vi.setSystemTime(new Date(NOW.getTime() + HISTORY_CACHE_TTL_MS - 1));
+    expect((await fetchSnowfallHistory(RESORT, 'upper', 5)).retrievedAt).toBe(first.retrievedAt);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    vi.setSystemTime(new Date(NOW.getTime() + HISTORY_CACHE_TTL_MS));
+    await fetchSnowfallHistory(RESORT, 'upper', 5);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it('revalidates persistent supersets and ignores gaps only outside the requested winters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => response(10) }); vi.stubGlobal('fetch', fetchMock);
+    await fetchSnowfallHistory(RESORT, 'upper', 10);
+    const entries = JSON.parse(storage.get('powder-history-v1')!);
+    const payload = entries[0].response;
+    payload.daily.snowfall_sum[payload.daily.time.indexOf('2017-01-10')] = null;
+    storage.set('powder-history-v1', JSON.stringify(entries));
+    vi.resetModules();
+    const outsideGap = await import('../src/lib/history');
+    const subset = await outsideGap.fetchSnowfallHistory(RESORT, 'upper', 5);
+    expect(subset.seasons.every(season => season.complete)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    payload.daily.snowfall_sum[payload.daily.time.indexOf('2024-01-10')] = null;
+    storage.set('powder-history-v1', JSON.stringify(entries));
+    vi.resetModules();
+    const insideGap = await import('../src/lib/history');
+    expect((await insideGap.fetchSnowfallHistory(RESORT, 'upper', 5)).seasons.every(season => season.complete)).toBe(true);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+  it('rejects invalid superset units even when all requested dates are present', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => response(10) }); vi.stubGlobal('fetch', fetchMock);
+    await fetchSnowfallHistory(RESORT, 'upper', 10);
+    const entries = JSON.parse(storage.get('powder-history-v1')!);
+    entries[0].response.daily_units.snowfall_sum = 'inch';
+    storage.set('powder-history-v1', JSON.stringify(entries));
+    vi.resetModules();
+    const afterReload = await import('../src/lib/history');
+    expect((await afterReload.fetchSnowfallHistory(RESORT, 'upper', 5)).sourceKind).toBe('estimate');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
   it('does not cache incomplete seasons or unsuccessful responses', async () => {
     const incomplete = response(); incomplete.daily.snowfall_sum[0] = null;
