@@ -116,9 +116,9 @@ export function parseForecastResponse(
       issuedAt: null,
     };
   });
-  warnings.push('Official resort snow and lift reports are not connected. Confirm access on the resort website.');
+  warnings.push('Lift and terrain access for your ski date is unverified. Check the morning resort check and official website.');
   return assembleSnapshot('live', resort, date, elevation, models, {
-    snowfall24hCm: null, depthCm: null, location: 'Official reporting station not connected',
+    snowfall24hCm: null, depthCm: null, location: 'No observation is assigned to this forecast height',
     updatedAt: null, sourceUrl: resort.officialReportUrl, fictional: false,
   }, {
     status: 'unknown', verifiedForDate: null,

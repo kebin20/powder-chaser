@@ -1,6 +1,6 @@
 {
   "name": "powder-chaser",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "private": true,
   "type": "module",
   "description": "Japan ski resort powder forecasts and trip decisions.",
@@ -16,7 +16,8 @@
     "preview": "vite preview --host 127.0.0.1",
     "icons": "node scripts/generate-icons.mjs",
     "images": "node scripts/optimize-images.mjs",
-    "catalogue:import": "node scripts/import-japan-resorts.mjs"
+    "catalogue:import": "node scripts/import-japan-resorts.mjs",
+    "reports:refresh": "node scripts/collect-resort-reports.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.56.0",
