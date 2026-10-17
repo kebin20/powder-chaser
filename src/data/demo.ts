@@ -52,7 +52,7 @@ export function getDemoSnapshot(
     sourceUrl: resort.officialReportUrl, fictional: true,
   }, {
     status: 'open', verifiedForDate: date,
-    details: 'Fictional open-lift scenario; no real operations report is connected.',
+    details: 'Fictional open-lift scenario; this is not a current operations report.',
     updatedAt,
   }, updatedAt, [
     'All demo snowfall, snow depth, weather and lift conditions are fictional winter examples.',

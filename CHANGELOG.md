@@ -7,6 +7,30 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.6 — 2026-10-18</strong> · Compare favourites and check the mountain</summary>
+
+### Added
+
+- A forecast comparison in Favorites with a shared ski-morning selector, selected height/threshold, snowfall range, Go / Maybe / Skip, and the main concern for each saved resort.
+- Six-resort pages with at most three concurrent loads, shared provider caching, cancellation, independent failures and failed-only retries. Saved order is retained; no catalogue-wide forecast downloads.
+- A morning resort check inside the existing forecast-details dropdown, available even when a model forecast fails. Reported 24-hour snow, depth, current lift status, source timestamps and official links stay separate from overnight forecasts.
+- Initial official report adapters for Rusutsu and Madarao, with webcam links. Unavailable readings stay unknown and old reports are labelled; Madarao's lift schedule is not treated as verified live access.
+- Scheduled report collection during hourly winter / daily offseason Pages deployments. No extra hosted backend, account or API key is required.
+
+### Reliability and scope
+
+- New comparison/report UI loads on demand with failure boundaries; report data is fetched only when the dropdown opens in live mode.
+- Independently dated lift and snowfall readings retain their own freshness. A current-day report never verifies a future ski morning, and reported snow uses a separate window from the overnight forecast.
+- Source changes and network failures preserve unknown values rather than producing zeros or assumed operations.
+
+### Verification
+
+- 136 behavioural tests, TypeScript and production build pass, including bounded comparison requests, cancellation, report freshness, independent source failures and parser fixtures.
+- Browser checks cover 320/390/1024/1440px, twelve automated accessibility audits, failed-only retry/reconnect races, stale/missing/future reports, lazy data requests and optional-chunk failures.
+
+</details>
+
+<details>
 <summary><strong>0.1.5 — 2026-10-17</strong> · Reliability and smaller forecast downloads</summary>
 
 ### Improved

@@ -20,6 +20,8 @@ The deployment environment and forecast mode are separate: both previews start w
 - A personal minimum-snowfall threshold and favourite resorts saved in your browser.
 - A searchable Japan catalogue of 520 downhill areas across 35 prefectures, with English/Japanese names, aliases, and prefecture filters.
 - An on-demand snowfall-history view: published Grand Hirafu records where verified, and clearly labelled ERA5 estimates elsewhere, with five/ten winter charts and source details.
+- Compare saved resorts for the same ski morning in Favorites: forecast range, Go / Maybe / Skip and the main concern, six resorts at a time.
+- Open the morning resort check inside forecast details for dated official snow/lift reports where supported, plus official report and webcam links.
 - Search by resort or region, save a personal shortlist, and compare the next two mornings in Plan a trip.
 - Outlined alpine favicon, Apple home-screen icon, web app manifest, and an offline app shell.
 - A wider desktop dashboard with the hero and forecast summary alongside each other, while phones retain the compact layout.
@@ -36,7 +38,7 @@ The eight curated starter resorts are Akakura Kanko, Kagura, Hakuba Happo-one, N
 
 All three models use the same resort coordinate, selected elevation, and **18:00 the previous evening to 08:00 on the selected ski morning, JST**. Hourly snowfall is summed over that window. The middle forecast is the typical estimate; the smallest and largest values show model disagreement, not a probability interval. Missing or incomplete windows remain unknown instead of becoming zero.
 
-Live mode currently does **not** ingest official resort snow reports or lift status. It links to official resort pages and marks these values as unknown. The snow-depth hero therefore shows a report placeholder in live mode. A failed live request shows an error rather than silently substituting sample snow.
+The **morning resort check** separately imports dated official reports for Rusutsu and snow reports for Madarao. Other resorts retain official links and unknown readings. Collection runs during Pages deployments, scheduled hourly from November through May and daily outside winter; GitHub scheduling and source availability can delay updates. Source timestamps, rather than collection time, determine freshness. Old readings are labelled **Past report**; missing or undated readings remain unavailable. A current-day lift report never verifies tomorrow's access. These observations do not change the forecast recommendation or snow-depth hero. A failed live request shows an error rather than silently substituting sample snow. See [report sources and collection](docs/resort-reports.md).
 
 Model grids cannot resolve every slope or local snowfall effect. JMA snowfall here is Open-Meteo's derived estimate, and selecting a mountain elevation does not turn the forecast into a measured upper-slope report. Retrieval timestamps describe when the app fetched data, not the model's issue time. See the [JMA](https://open-meteo.com/en/docs/jma-api), [ECMWF](https://open-meteo.com/en/docs/ecmwf-api), and [GFS](https://open-meteo.com/en/docs/gfs-api) source documentation.
 
@@ -48,7 +50,7 @@ The recommendation is a transparent starting heuristic. It considers model agree
 - **Maybe:** forecasts disagree, data is incomplete or old, rain/wind could matter, or lift and terrain access is unverified.
 - **Skip:** all three forecasts fall below the threshold, or relevant terrain is confirmed closed for the selected date.
 
-Because live lift operations are not yet integrated, a promising live forecast remains **Maybe** until access can be verified. Confidence describes forecast agreement and completeness; it is not a calibrated chance of powder, an assessment of avalanche danger, or a guarantee of untracked snow. The exact rules live in [`src/lib/decision.ts`](src/lib/decision.ts).
+The imported operations are current-day reports, while trip forecasts cover upcoming mornings. A promising live forecast therefore remains **Maybe** until access for that future date can be verified. Confidence describes forecast agreement and completeness; it is not a calibrated chance of powder, an assessment of avalanche danger, or a guarantee of untracked snow. The exact rules live in [`src/lib/decision.ts`](src/lib/decision.ts).
 
 ## Run locally
 
@@ -80,6 +82,7 @@ npm run preview
 | `npm run preview` | Serve the compiled app locally |
 | `npm run icons` | Regenerate PNG/ICO icons from the original SVG |
 | `npm run images` | Reproduce the optimised WebP hero assets from the original PNGs |
+| `npm run reports:refresh` | Collect supported official reports into the local public data file |
 | `npm run catalogue:import` | Refresh the licensed Japan ski-area catalogue from OpenSkiData |
 
 Optional build configuration is documented in [`.env.example`](.env.example):
@@ -156,6 +159,7 @@ docs/
   audit-0.1.5.md           Reliability fixes and latest measured improvements
   resort-catalogue.md      Catalogue coverage, sources, licence and import
   history.md              Resort records, estimate method and cache behaviour
+  resort-reports.md        Morning report sources, timestamps and collection
 .github/
   workflows/              CI and paired live/staging Pages deployment
   ISSUE_TEMPLATE/         Bug reports and feature requests
@@ -172,18 +176,16 @@ The existing eight curated IDs are retained, so saved favourites survive the exp
 
 ## Next steps
 
-Integrate licensed Japanese forecast feeds and timestamped resort reports, improve catalogue coverage and official historical records, calibrate forecast accuracy against observations, and add personalised powder alerts. The initial app focuses on the visual workflow and a working model comparison.
+Expand verified official report coverage and licensed Japanese forecast feeds, improve catalogue coverage and historical records, calibrate forecast accuracy against observations, and add quiet personalised powder alerts. The initial app focuses on the visual workflow and a working model comparison.
 
 ## Changelog
 
 <details>
-<summary>0.1.5 · 17 October 2026 · Reliability and smaller forecast downloads</summary>
+<summary>0.1.6 · 18 October 2026 · Compare favourites and check the mountain</summary>
 
-- Download only the 38 hourly readings needed for both ski mornings.
-- Recover failed forecasts after reconnecting and update ski dates when the app resumes after midnight.
-- Preserve successful downloads when browser caching fails.
-- Reuse complete history subsets, preserve detailed snowfall decimals, and fix dialog padding clicks.
-- Verify mobile/desktop layouts, accessibility, and 93 behavioural tests.
+- Compare forecasts, recommendations and concerns for saved resorts in one view.
+- Check dated resort snow/lift reports inside the existing details dropdown.
+- Keep report collection and weather requests bounded; unsupported or stale reports stay clear.
 
 [Open the full changelog](CHANGELOG.md). Detailed releases are collapsible so this README stays easy to scan.
 
