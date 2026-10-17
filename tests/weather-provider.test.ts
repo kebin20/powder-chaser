@@ -28,11 +28,13 @@ function providerResponse(date = DATE) {
   return { timezone: 'Asia/Tokyo', utc_offset_seconds: 32400, hourly, hourly_units, generationtime_ms: 2.1 };
 }
 
-function threeDayResponse(firstSkiDate = DATE) {
+function sharedWindowResponse(firstSkiDate = DATE) {
   const response = providerResponse(firstSkiDate);
   const today = addDays(firstSkiDate, -1);
-  const times = Array.from({ length: 72 }, (_, index) =>
-    `${addDays(today, Math.floor(index / 24))}T${String(index % 24).padStart(2, '0')}:00`);
+  const times = Array.from({ length: 38 }, (_, index) => {
+    const hour = 19 + index;
+    return `${addDays(today, Math.floor(hour / 24))}T${String(hour % 24).padStart(2, '0')}:00`;
+  });
   const secondWindow = new Set(overnightHourEnds(addDays(firstSkiDate, 1)));
   for (const key of Object.keys(response.hourly)) {
     response.hourly[key] = key === 'time' ? times : times.map((time) =>
@@ -130,7 +132,7 @@ describe('live request and cache behavior', () => {
     vi.useRealTimers();
   });
   const successfulFetch = () => vi.fn().mockImplementation(async () => ({
-    ok: true, json: async () => threeDayResponse(),
+    ok: true, json: async () => sharedWindowResponse(),
   }));
 
   it('requests explicit models, Japan time and the selected reference elevation', () => {
@@ -138,8 +140,27 @@ describe('live request and cache behavior', () => {
     expect(url.searchParams.get('models')).toBe('jma_msm,ecmwf_ifs025,gfs_global');
     expect(url.searchParams.get('timezone')).toBe('Asia/Tokyo');
     expect(url.searchParams.get('elevation')).toBe(String(RESORT.upperElevationM));
-    expect(url.searchParams.get('forecast_days')).toBe('3');
+    expect(url.searchParams.get('start_hour')).toBe('2026-01-20T19:00');
+    expect(url.searchParams.get('end_hour')).toBe('2026-01-22T08:00');
+    expect(url.searchParams.has('forecast_days')).toBe(false);
     expect(() => buildForecastUrl(RESORT, '2026-01-30', 'upper', NOW)).toThrow(/next two/);
+  });
+
+  it('shares exactly 38 samples covering both overnight windows across the Japan year boundary', () => {
+    const now = new Date('2025-12-31T16:00:00Z');
+    const dates = getTripDates(now).map((trip) => trip.date);
+    const firstUrl = new URL(buildForecastUrl(RESORT, dates[0], 'upper', now));
+    expect(buildForecastUrl(RESORT, dates[1], 'upper', now)).toBe(firstUrl.href);
+    const start = firstUrl.searchParams.get('start_hour')!;
+    const end = firstUrl.searchParams.get('end_hour')!;
+    expect(start).toBe('2026-01-01T19:00');
+    expect(end).toBe('2026-01-03T08:00');
+    expect((Date.parse(`${end}+09:00`) - Date.parse(`${start}+09:00`)) / 3_600_000 + 1).toBe(38);
+    for (const date of dates) {
+      for (const hour of overnightHourEnds(date)) {
+        expect(hour >= start && hour <= end).toBe(true);
+      }
+    }
   });
 
   it('uses provider location elevation when map heights are unknown, without labelling it as a measured station', async () => {
@@ -198,7 +219,7 @@ describe('live request and cache behavior', () => {
     vi.stubGlobal('fetch', fetchMock);
     await fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
     vi.setSystemTime(new Date('2026-01-20T15:01:00Z'));
-    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => threeDayResponse(addDays(DATE, 1)) }));
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => sharedWindowResponse(addDays(DATE, 1)) }));
     const nextDay = await fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(nextDay.typicalCm).toBe(28);
@@ -211,7 +232,7 @@ describe('live request and cache behavior', () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => new Promise(resolve => { finish = resolve; })));
     const request = fetchLiveSnapshot(RESORT, DATE, 'upper');
     vi.setSystemTime(new Date('2026-01-20T15:00:01Z'));
-    finish({ ok: true, json: async () => threeDayResponse() });
+    finish({ ok: true, json: async () => sharedWindowResponse() });
     await expect(request).rejects.toThrow(/date changed in Japan/);
     expect(storage.size).toBe(0);
   });
@@ -261,7 +282,7 @@ describe('live request and cache behavior', () => {
     controller.abort();
     await expect(first).rejects.toMatchObject({ name: 'AbortError' });
     expect(providerSignal.aborted).toBe(false);
-    finish({ ok: true, json: async () => threeDayResponse() });
+    finish({ ok: true, json: async () => sharedWindowResponse() });
     expect((await second).typicalCm).toBe(42);
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect(storage.size).toBe(1);
@@ -286,7 +307,7 @@ describe('live request and cache behavior', () => {
     expect(providerSignal.aborted).toBe(true);
     await expect(first).rejects.toMatchObject({ name: 'AbortError' });
     await expect(second).rejects.toMatchObject({ name: 'AbortError' });
-    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => threeDayResponse() }));
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => sharedWindowResponse() }));
     expect((await fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
@@ -294,12 +315,12 @@ describe('live request and cache behavior', () => {
   it('a manual refresh bypasses pending work without letting the old result repopulate cache', async () => {
     let finishOld!: (value: unknown) => void;
     const fetchMock = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
-      .mockImplementation(async () => ({ ok: true, json: async () => threeDayResponse() }));
+      .mockImplementation(async () => ({ ok: true, json: async () => sharedWindowResponse() }));
     vi.stubGlobal('fetch', fetchMock);
     const oldRequest = fetchLiveSnapshot(RESORT, DATE, 'upper');
     clearWeatherCache();
     const fresh = await fetchLiveSnapshot(RESORT, DATE, 'upper');
-    const oldResponse = threeDayResponse();
+    const oldResponse = sharedWindowResponse();
     oldResponse.hourly.snowfall_jma_msm = oldResponse.hourly.time.map(() => 99);
     finishOld({ ok: true, json: async () => oldResponse });
     await oldRequest;

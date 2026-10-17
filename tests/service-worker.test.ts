@@ -16,7 +16,9 @@ function worker(scope = 'https://example.com/powder-chaser/') {
   const entries = new Map<string, Response>();
   const cache = {
     match: vi.fn(async (request: RequestStub | string) => entries.get(typeof request === 'string' ? request : request.url)?.clone()),
-    put: vi.fn(async (url: string, response: Response) => { entries.set(url, response.clone()); }),
+    put: vi.fn(async (request: RequestStub | string, response: Response) => {
+      entries.set(typeof request === 'string' ? request : request.url, response.clone());
+    }),
     addAll: vi.fn(async (urls: string[]) => {
       if (new Set(urls).size !== urls.length) throw new Error('Duplicate precache URL');
       for (const url of urls) entries.set(url, new Response(`cached:${url}`));
@@ -26,7 +28,7 @@ function worker(scope = 'https://example.com/powder-chaser/') {
   const otherScope = scope.includes('/staging/') ? scope.replace('staging/', '') : `${scope}staging/`;
   const caches = {
     open: vi.fn(async () => cache),
-    match: cache.match,
+    match: vi.fn(async (request: RequestStub | string) => cache.match(request)),
     keys: vi.fn(async () => [`${prefix}old`, `${prefix}test-release`, `powder-chaser:${otherScope}:old`]),
     delete: vi.fn(async () => true),
   };
@@ -36,12 +38,13 @@ function worker(scope = 'https://example.com/powder-chaser/') {
       ? `<script type="module" src="${new URL(compiled[0], scope).pathname}"></script>`
       : `network:${url}`);
   });
+  const clients = { claim: vi.fn(async () => undefined) };
   runInNewContext(source
     .replace('__POWDER_CHASER_RELEASE__', 'test-release')
     .replace('/* __POWDER_CHASER_ASSET_PATHS__ */ []', JSON.stringify(compiled)), {
     URL, Response, fetch: network, caches,
     self: {
-      registration: { scope }, clients: { claim: vi.fn(async () => undefined) },
+      registration: { scope }, clients,
       addEventListener: (name: string, listener: (event: EventStub) => void) => handlers.set(name, listener),
     },
   });
@@ -50,16 +53,16 @@ function worker(scope = 'https://example.com/powder-chaser/') {
     handlers.get(name)!({ waitUntil: promise => { promises.push(promise); }, respondWith: () => undefined });
     await Promise.all(promises);
   }
-  async function request(url: string, destination = 'image') {
+  async function request(url: string, destination = 'image', mode = 'cors') {
     const result: { response?: Promise<Response> } = {};
     handlers.get('fetch')!({
-      request: { url, method: 'GET', mode: 'cors', destination },
+      request: { url, method: 'GET', mode, destination },
       waitUntil: () => undefined,
       respondWith: promise => { result.response = promise; },
     });
     return result.response ? await result.response : null;
   }
-  return { scope, cache, caches, network, lifecycle, request };
+  return { scope, cache, caches, clients, network, lifecycle, request };
 }
 
 describe('release-scoped offline assets', () => {
@@ -103,5 +106,88 @@ describe('release-scoped offline assets', () => {
     const app = worker();
     await app.lifecycle('activate');
     expect(app.caches.delete.mock.calls).toEqual([[`powder-chaser:${app.scope}:old`]]);
+  });
+});
+
+describe('optional runtime caching', () => {
+  it.each(['open', 'match', 'put'] as const)('preserves successful asset responses when cache %s fails', async (operation) => {
+    const app = worker();
+    const unavailable = new Error('Cache storage unavailable');
+    if (operation === 'open') app.caches.open.mockRejectedValue(unavailable);
+    else app.cache[operation].mockRejectedValue(unavailable);
+    const url = new URL(compiled[0], app.scope).href;
+
+    const response = await app.request(url, 'script');
+
+    expect(response?.status).toBe(200);
+    expect(await response?.text()).toBe(`network:${url}`);
+    expect(app.network).toHaveBeenCalledOnce();
+  });
+
+  it.each(['open', 'put'] as const)('preserves fresh online navigation when cache %s fails', async (operation) => {
+    const app = worker();
+    await app.cache.put(new URL('index.html', app.scope).href, new Response('stale shell'));
+    const unavailable = new Error('Cache storage unavailable');
+    if (operation === 'open') app.caches.open.mockRejectedValue(unavailable);
+    else app.cache.put.mockRejectedValue(unavailable);
+    app.network.mockResolvedValue(new Response('fresh shell'));
+
+    const response = await app.request(app.scope, 'document', 'navigate');
+
+    expect(response?.status).toBe(200);
+    expect(await response?.text()).toBe('fresh shell');
+    expect(app.caches.match).not.toHaveBeenCalled();
+  });
+
+  it('uses the active release shell when navigation is offline', async () => {
+    const app = worker();
+    await app.cache.put(new URL('index.html', app.scope).href, new Response('active release shell'));
+    app.caches.match.mockResolvedValue(new Response('different release shell'));
+    app.network.mockRejectedValue(new Error('Offline'));
+
+    const response = await app.request(app.scope, 'document', 'navigate');
+
+    expect(await response?.text()).toBe('active release shell');
+    expect(app.caches.open).toHaveBeenCalledWith(`powder-chaser:${app.scope}:test-release`);
+    expect(app.caches.match).not.toHaveBeenCalled();
+  });
+
+  it('falls back to a cached static resource when its network request fails', async () => {
+    const app = worker();
+    const url = new URL('illustrations/legacy.png', app.scope).href;
+    await app.cache.put(url, new Response('cached image'));
+    app.network.mockRejectedValue(new Error('Offline'));
+
+    const response = await app.request(url);
+
+    expect(await response?.text()).toBe('cached image');
+    expect(app.network).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    ['asset', 'open'], ['asset', 'match'], ['navigation', 'open'], ['navigation', 'match'],
+  ] as const)('returns a network error when both %s network and cache %s are unavailable', async (kind, operation) => {
+    const app = worker();
+    const unavailable = new Error('Cache storage unavailable');
+    if (operation === 'open') app.caches.open.mockRejectedValue(unavailable);
+    else app.cache.match.mockRejectedValue(unavailable);
+    app.network.mockRejectedValue(new Error('Offline'));
+
+    const response = kind === 'navigation'
+      ? await app.request(app.scope, 'document', 'navigate')
+      : await app.request(new URL(compiled[0], app.scope).href, 'script');
+
+    expect(response?.type).toBe('error');
+    expect(response?.status).toBe(0);
+  });
+
+  it.each(['open', 'put', 'addAll'] as const)('still rejects installation when precache %s fails', async (operation) => {
+    const app = worker();
+    const unavailable = new Error('Incomplete offline shell');
+    if (operation === 'open') app.caches.open.mockRejectedValue(unavailable);
+    else app.cache[operation].mockRejectedValue(unavailable);
+
+    await expect(app.lifecycle('install')).rejects.toThrow('Incomplete offline shell');
+    expect(app.clients.claim).not.toHaveBeenCalled();
   });
 });

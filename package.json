@@ -1,6 +1,6 @@
 {
   "name": "powder-chaser",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "description": "Japan ski resort powder forecasts and trip decisions.",
