@@ -1,5 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
-import { ChartNoAxesColumn, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, CloudRain, CloudSun, ExternalLink, Heart, Info, MapPin, MountainSnow, Search, SlidersHorizontal, Snowflake, Star, Thermometer, WifiOff, Wind, X } from 'lucide-react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type RefObject, type MouseEvent } from 'react';
+import { ChartNoAxesColumn, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, ExternalLink, Heart, Info, MapPin, MountainSnow, Search, SlidersHorizontal, Snowflake, Star, Thermometer, WifiOff, Wind, X } from 'lucide-react';
 import { CATALOGUE_METADATA, RESORTS, RESORT_REGIONS, searchResorts } from './data/resorts';
 import cloudImage from './assets/snow-cloud.webp';
 import treeImage from './assets/snowy-tree.webp';
@@ -26,12 +26,15 @@ function snowRange(snapshot: WeatherSnapshot) {
 }
 function useSnapshot(resort: Resort, date: string, elevation: Elevation, mode: DataMode, enabled = true, refresh = 0) {
   const [routineRefresh, setRoutineRefresh] = useState(0);
+  const reconnectGeneration = useRef(0);
+  const generationAtAttemptStart = useRef(0);
   const key = `${resort.id}:${date}:${elevation}:${mode}:${refresh}:${routineRefresh}`;
   const [state, setState] = useState<{ key: string; data: WeatherSnapshot | null; error: string | null }>({ key: '', data: null, error: null });
   const demo = useMemo(() => mode === 'demo' && hasDemoScenario(resort) ? getDemoSnapshot(resort, date, elevation) : null, [resort, date, elevation, mode]);
   useEffect(() => {
     if (mode !== 'live' || !enabled) return;
     const controller = new AbortController();
+    generationAtAttemptStart.current = reconnectGeneration.current;
     setState({ key, data: null, error: null });
     fetchLiveSnapshot(resort, date, elevation, controller.signal).then(data => {
       if (!controller.signal.aborted) setState({ key, data, error: null });
@@ -41,30 +44,39 @@ function useSnapshot(resort: Resort, date: string, elevation: Elevation, mode: D
     return () => controller.abort();
   }, [key, mode, enabled, resort, date, elevation]);
   useEffect(() => {
-    if (mode !== 'live' || !enabled || state.key !== key || !state.data) return;
-    const retrievedAt = new Date(state.data.updatedAt).getTime();
+    if (mode !== 'live' || !enabled) return;
+    const retrievedAt = state.data ? new Date(state.data.updatedAt).getTime() : null;
     let requested = false;
     const checkFreshness = () => {
-      if (requested || document.visibilityState === 'hidden') return;
-      if (Date.now() - retrievedAt >= WEATHER_CACHE_TTL_MS) {
+      if (requested || state.key !== key || document.visibilityState === 'hidden' || !navigator.onLine) return;
+      if ((state.error && reconnectGeneration.current > generationAtAttemptStart.current) || (retrievedAt !== null && Date.now() - retrievedAt >= WEATHER_CACHE_TTL_MS)) {
         requested = true;
         // Re-read through the provider cache; only explicit Refresh clears it.
         // Once this advances, the loaded-key guard blocks further checks while loading.
         setRoutineRefresh(current => current + 1);
       }
     };
-    const timer = window.setInterval(checkFreshness, 60_000);
+    const restoreConnection = () => { reconnectGeneration.current += 1; checkFreshness(); };
+    // Keep reconnects that arrive while a request is pending or the app is hidden.
+    checkFreshness();
+    // Failed loads retry after a connection returns, not on every focus/timer.
+    const timer = state.data ? window.setInterval(checkFreshness, 60_000) : null;
     window.addEventListener('focus', checkFreshness);
-    window.addEventListener('online', checkFreshness);
+    window.addEventListener('online', restoreConnection);
     document.addEventListener('visibilitychange', checkFreshness);
     return () => {
-      window.clearInterval(timer);
+      if (timer !== null) window.clearInterval(timer);
       window.removeEventListener('focus', checkFreshness);
-      window.removeEventListener('online', checkFreshness);
+      window.removeEventListener('online', restoreConnection);
       document.removeEventListener('visibilitychange', checkFreshness);
     };
   }, [mode, enabled, key, state]);
   return { snapshot: demo || (state.key === key ? state.data : null), error: mode === 'demo' && !hasDemoScenario(resort) ? 'This resort has no fictional winter demo. Load live forecasts to see its current outlook.' : state.key === key ? state.error : null, loading: mode === 'live' && enabled && (state.key !== key || (!state.data && !state.error)) };
+}
+function closeOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
+  if (event.target !== event.currentTarget) return;
+  const bounds = event.currentTarget.getBoundingClientRect();
+  if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) event.currentTarget.close();
 }
 function Status({ decision }: { decision: PowderDecision }) {
   return <span className={`status ${decision.status}`}>{decision.status === 'go' && <Check size={14} aria-hidden="true" />}{decision.status.toUpperCase()}</span>;
@@ -74,7 +86,7 @@ function Hero({ snapshot, resort, elevation, loading }: { snapshot: WeatherSnaps
   const touch = useRef<{ x: number; y: number } | null>(null);
   const rain = snapshot && (snapshot.rainMm ?? 0) >= 2;
   const quiet = snapshot && snapshot.maxCm !== null && snapshot.maxCm <= 1;
-  const label = loading ? 'Looking to the mountains' : !snapshot ? 'A fresh perspective' : snapshot.maxCm === null ? 'Forecast still unclear' : rain ? 'A mixed weather window' : quiet ? 'A quieter snow window' : 'Snow on the horizon';
+  const label = loading ? 'Looking to the mountains' : !snapshot ? 'Forecast unavailable' : snapshot.maxCm === null ? 'Forecast still unclear' : rain ? 'A mixed weather window' : quiet ? 'A quieter snow window' : 'Snow on the horizon';
   const depth = snapshot?.snowDepthCm ?? null;
   const rulerMax = Math.max(300, Math.ceil((depth ?? 0) / 100) * 100);
   return <>
@@ -88,7 +100,7 @@ function Hero({ snapshot, resort, elevation, loading }: { snapshot: WeatherSnaps
     }} onPointerCancel={() => { touch.current = null; }}>
       {slide === 0 ? <div className="hero-slide weather-slide" role="group" aria-label="Weather, slide 1 of 2">
         <span className="hero-eyebrow">YOUR NEXT SNOW DAY</span>
-        {rain ? <CloudRain className="alternate-weather" size={108} strokeWidth={1.25} aria-hidden="true" /> : quiet ? <CloudSun className="alternate-weather" size={104} strokeWidth={1.25} aria-hidden="true" /> : <img className="weather-illustration" src={cloudImage} width={480} height={371} decoding="async" fetchPriority="high" alt="" />}
+        {loading || !snapshot || snapshot.maxCm === null ? <Cloud className="alternate-weather" size={104} strokeWidth={1.25} aria-hidden="true" /> : rain ? <CloudRain className="alternate-weather" size={108} strokeWidth={1.25} aria-hidden="true" /> : quiet ? <CloudSun className="alternate-weather" size={104} strokeWidth={1.25} aria-hidden="true" /> : <img className="weather-illustration" src={cloudImage} width={480} height={371} decoding="async" fetchPriority="high" alt="" />}
         <div className="hero-caption"><h2>{label}</h2><p>{(elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null ? 'Resort area' : elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {resort.region}</p></div>
       </div> : <div className="hero-slide depth-slide" role="group" aria-label="Total snow depth, slide 2 of 2">
         <div className="depth-scene"><img className="tree-illustration" src={treeImage} width={640} height={425} decoding="async" alt="" />
@@ -147,6 +159,7 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [region, setRegion] = useState('All');
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [online, setOnline] = useState(navigator.onLine);
   const [resortListOverflows, setResortListOverflows] = useState(false);
@@ -161,12 +174,20 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem(storeKey, JSON.stringify(preferences)); } catch { /* Browsing remains available when storage is blocked. */ } }, [preferences]);
   useEffect(() => {
     const updateDates = () => {
+      if (document.visibilityState === 'hidden') return;
       const next = getTripDates();
       if (next[0].date !== dates[0].date) { setDates(next); setDateIndex(0); }
     };
     const timer = window.setInterval(updateDates, 60_000);
     window.addEventListener('focus', updateDates);
-    return () => { window.clearInterval(timer); window.removeEventListener('focus', updateDates); };
+    window.addEventListener('online', updateDates);
+    document.addEventListener('visibilitychange', updateDates);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('focus', updateDates);
+      window.removeEventListener('online', updateDates);
+      document.removeEventListener('visibilitychange', updateDates);
+    };
   }, [dates]);
   useEffect(() => {
     const update = () => setOnline(navigator.onLine);
@@ -174,6 +195,7 @@ export default function App() {
     return () => { window.removeEventListener('online', update); window.removeEventListener('offline', update); };
   }, []);
   const patch = (value: Partial<Preferences>) => setPreferences(current => ({ ...current, ...value }));
+  const openExplorer = () => { setExplorerOpen(true); explorer.current?.showModal(); };
   const toggleFavorite = (id: string) => setPreferences(current => ({ ...current, favorites: current.favorites.includes(id) ? current.favorites.filter(item => item !== id) : [...current.favorites, id] }));
   const selectResort = (id: string) => { const selected = RESORTS.find(item => item.id === id); patch({ resortId: id, ...(selected && !hasDemoScenario(selected) ? { mode: 'live' } : {}) }); setHistoryOpen(false); setView('forecast'); explorer.current?.close(); };
   const filtered = useMemo(() => searchResorts(query, region), [query, region]);
@@ -206,7 +228,7 @@ export default function App() {
       {!online && <div className="offline-banner" role="status"><WifiOff size={14} />Offline · cached pages are available; forecasts need a connection.</div>}
       <main id="main-content" tabIndex={-1}>
       {view === 'forecast' ? <>
-        <div className="forecast-heading"><div><div className="location-line"><MapPin size={11} />{resort.region}, Japan<span className={`mode-label ${preferences.mode}`}>{preferences.mode === 'demo' ? 'DEMO' : 'LIVE MODELS'}</span></div><button className="resort-heading" onClick={() => explorer.current?.showModal()} aria-label={`Choose resort, currently ${resort.name}`}><h1>{resort.name}</h1><ChevronDown size={19} /></button><a className="resort-homepage" href={resort.officialUrl ?? resort.sourceUrl} target="_blank" rel="noreferrer">{resort.officialUrl ? 'Resort website' : 'Resort map listing'}<ExternalLink size={11} aria-hidden="true" /></a></div><button className={`icon-button favorite-button ${preferences.favorites.includes(resort.id) ? 'saved' : ''}`} onClick={() => toggleFavorite(resort.id)} aria-label={`${preferences.favorites.includes(resort.id) ? 'Remove from' : 'Add to'} favorites`} aria-pressed={preferences.favorites.includes(resort.id)}><Star size={20} fill={preferences.favorites.includes(resort.id) ? 'currentColor' : 'none'} /></button></div>
+        <div className="forecast-heading"><div><div className="location-line"><MapPin size={11} />{resort.region}, Japan<span className={`mode-label ${preferences.mode}`}>{preferences.mode === 'demo' ? 'DEMO' : 'LIVE MODELS'}</span></div><button className="resort-heading" onClick={openExplorer} aria-label={`Choose resort, currently ${resort.name}`}><h1>{resort.name}</h1><ChevronDown size={19} /></button><a className="resort-homepage" href={resort.officialUrl ?? resort.sourceUrl} target="_blank" rel="noreferrer">{resort.officialUrl ? 'Resort website' : 'Resort map listing'}<ExternalLink size={11} aria-hidden="true" /></a></div><button className={`icon-button favorite-button ${preferences.favorites.includes(resort.id) ? 'saved' : ''}`} onClick={() => toggleFavorite(resort.id)} aria-label={`${preferences.favorites.includes(resort.id) ? 'Remove from' : 'Add to'} favorites`} aria-pressed={preferences.favorites.includes(resort.id)}><Star size={20} fill={preferences.favorites.includes(resort.id) ? 'currentColor' : 'none'} /></button></div>
         <div className="date-selector" role="group" aria-label="Ski morning">{dates.map((item, index) => <button key={item.id} className={dateIndex === index ? 'active' : ''} aria-pressed={dateIndex === index} onClick={() => setDateIndex(index)}><span>{item.label}</span><small>{item.shortLabel}</small></button>)}<span className="date-timezone">JST</span></div>
         <div className="forecast-layout"><div className="forecast-visual"><Hero snapshot={data.snapshot} resort={resort} elevation={preferences.elevation} loading={data.loading} /></div>
         <div className="forecast-summary">{data.loading ? <div className="loading-card" role="status"><Snowflake size={23} /><h2>Checking three forecasts</h2><p>For {date.shortLabel}, {(preferences.elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null ? 'the resort area' : `${preferences.elevation} mountain`}.</p></div> : data.error ? <div className="error-card" role="alert"><h2>Forecasts couldn’t be loaded.</h2><p>{data.error}</p><div className="error-actions"><button className="primary-button" onClick={reload}>Try again</button><button className="text-button" onClick={() => patch({ mode: preferences.mode === 'demo' ? 'live' : 'demo', ...(!hasDemoScenario(resort) && preferences.mode === 'live' ? { resortId: RESORTS[0].id } : {}) })}>{preferences.mode === 'demo' ? 'Load live forecasts' : 'Explore the demo'}</button></div></div> : data.snapshot && decision ? <>
@@ -216,7 +238,7 @@ export default function App() {
         <div className="history-entry"><button className="history-button" onClick={() => setHistoryOpen(true)}><ChartNoAxesColumn size={17} aria-hidden="true" /><span>Snowfall history</span><ChevronRight size={15} aria-hidden="true" /></button><span>Past winter seasons</span></div>
         {data.snapshot && decision && <Evidence snapshot={data.snapshot} resort={resort} elevation={preferences.elevation} setElevation={value => patch({ elevation: value })} decision={decision} threshold={preferences.threshold} refresh={reload} />}
         <p className="demo-note">{preferences.mode === 'demo' ? 'Illustrative winter data · for exploring the app' : 'Model forecasts · verify official mountain conditions'}</p>
-      </> : view === 'favorites' ? <div className="collection-view"><span className="eyebrow">YOUR MOUNTAINS</span><h1>A personal shortlist.</h1><p className="view-intro">Keep the resorts you return to close by.</p><ResortList items={saved} favorites={preferences.favorites} onSelect={selectResort} onFavorite={toggleFavorite} empty="Your shortlist is waiting. Save a resort using its star." /><button className="primary-button browse-button" onClick={() => explorer.current?.showModal()}><Search size={15} />Find a resort</button><div className="collection-note"><Heart size={17} /><p>Your favorites stay in this browser, ready for your next snow day.</p></div></div> : <div className="plan-view"><span className="eyebrow">MAKE ROOM FOR A SNOW DAY</span><h1>Pick your powder window.</h1><p className="view-intro">Compare the next two ski mornings at <button className="inline-resort" onClick={() => explorer.current?.showModal()}>{resort.name}<ChevronDown size={13} /></button></p><div className="plan-preferences"><span>{(preferences.elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null ? 'Resort area' : preferences.elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {preferences.threshold} cm minimum</span><button className="text-button" onClick={() => settings.current?.showModal()}>Adjust</button></div><div className="plan-grid">{dates.map((item, index) => {
+      </> : view === 'favorites' ? <div className="collection-view"><span className="eyebrow">YOUR MOUNTAINS</span><h1>A personal shortlist.</h1><p className="view-intro">Keep the resorts you return to close by.</p><ResortList items={saved} favorites={preferences.favorites} onSelect={selectResort} onFavorite={toggleFavorite} empty="Your shortlist is waiting. Save a resort using its star." /><button className="primary-button browse-button" onClick={openExplorer}><Search size={15} />Find a resort</button><div className="collection-note"><Heart size={17} /><p>Your favorites stay in this browser, ready for your next snow day.</p></div></div> : <div className="plan-view"><span className="eyebrow">MAKE ROOM FOR A SNOW DAY</span><h1>Pick your powder window.</h1><p className="view-intro">Compare the next two ski mornings at <button className="inline-resort" onClick={openExplorer}>{resort.name}<ChevronDown size={13} /></button></p><div className="plan-preferences"><span>{(preferences.elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null ? 'Resort area' : preferences.elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {preferences.threshold} cm minimum</span><button className="text-button" onClick={() => settings.current?.showModal()}>Adjust</button></div><div className="plan-grid">{dates.map((item, index) => {
           const itemData = index === dateIndex ? data : alternate;
           return <PlanCard key={item.id} date={item} snapshot={itemData.snapshot} loading={itemData.loading} error={itemData.error} threshold={preferences.threshold} onSelect={() => { setDateIndex(index); navigate('forecast'); }} />;
         })}</div><p className="demo-note">{preferences.mode === 'demo' ? 'Illustrative winter data · actual dates, fictional conditions' : 'Both windows use live forecasts. Access needs checking.'}</p><div className="plan-checklist"><h2>Before you set off</h2><a href={resort.officialReportUrl ?? resort.sourceUrl} target="_blank" rel="noreferrer"><MountainSnow size={17} /><span>Check fresh snow and lift access<small>{resort.officialReportUrl ? 'Official resort report' : 'Resort map listing · confirm with the operator'}</small></span><ExternalLink size={14} /></a><p>These cards compare snowfall potential with your preferences. Travel time and road conditions aren’t included yet.</p></div></div>}
@@ -225,8 +247,8 @@ export default function App() {
     </div>
     <div className="mobile-navigation">{nav}</div>
     {historyOpen && <HistoryBoundary onClose={() => setHistoryOpen(false)}><Suspense fallback={<div className="history-chunk-loading" role="status">Opening snowfall history…<button className="text-button" onClick={() => setHistoryOpen(false)}>Cancel</button></div>}><SnowfallHistory resort={resort} elevation={preferences.elevation} onClose={() => setHistoryOpen(false)} /></Suspense></HistoryBoundary>}
-    <dialog className="app-dialog explorer-dialog" ref={explorer} onClick={event => { if (event.target === event.currentTarget) explorer.current?.close(); }}><div className="dialog-header"><div><span className="eyebrow">JAPAN</span><h2>Find your mountain.</h2></div><button className="icon-button" onClick={() => explorer.current?.close()} aria-label="Close resort search"><X size={20} /></button></div>{filterControls}<ResortList items={filtered} favorites={preferences.favorites} onSelect={selectResort} onFavorite={toggleFavorite} selectedId={resort.id} empty="No resorts match. Try another name or prefecture." /><p className="catalogue-note">{RESORTS.length} Japan downhill areas · source build {CATALOGUE_METADATA.sourceBuildAt.slice(0, 10)}. Map coverage and operating status can vary; verify with the resort. The winter demo covers eight starter resorts; other areas use live forecasts.</p><p className="catalogue-attribution">Data: <a href="https://openskidata.org/" target="_blank" rel="noreferrer">OpenSkiData</a> / <a href="https://openskimap.org/" target="_blank" rel="noreferrer">OpenSkiMap</a>, <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> (<a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>), <a href="https://skimap.org/" target="_blank" rel="noreferrer">Skimap.org</a>, <a href="https://whosonfirst.org/docs/licenses/" target="_blank" rel="noreferrer">Who's On First</a>, <a href="https://mapterhorn.com/" target="_blank" rel="noreferrer">© Mapterhorn</a>. <a href={CATALOGUE_METADATA.downloadUrl} target="_blank" rel="noreferrer">Download catalogue</a>.</p></dialog>
-    <dialog className="app-dialog settings-dialog" ref={settings} onClick={event => { if (event.target === event.currentTarget) settings.current?.close(); }}><div className="dialog-header"><div><span className="eyebrow">MAKE IT YOURS</span><h2>Your snow day.</h2></div><button className="icon-button" onClick={() => settings.current?.close()} aria-label="Close preferences"><X size={20} /></button></div>
+    <dialog className="app-dialog explorer-dialog" ref={explorer} aria-labelledby="resort-search-title" onClose={() => setExplorerOpen(false)} onClick={closeOnBackdrop}><div className="dialog-header"><div><span className="eyebrow">JAPAN</span><h2 id="resort-search-title">Find your mountain.</h2></div><button className="icon-button" onClick={() => explorer.current?.close()} aria-label="Close resort search"><X size={20} /></button></div>{filterControls}{explorerOpen && <ResortList items={filtered} favorites={preferences.favorites} onSelect={selectResort} onFavorite={toggleFavorite} selectedId={resort.id} empty="No resorts match. Try another name or prefecture." />}<p className="catalogue-note">{RESORTS.length} Japan downhill areas · source build {CATALOGUE_METADATA.sourceBuildAt.slice(0, 10)}. Map coverage and operating status can vary; verify with the resort. The winter demo covers eight starter resorts; other areas use live forecasts.</p><p className="catalogue-attribution">Data: <a href="https://openskidata.org/" target="_blank" rel="noreferrer">OpenSkiData</a> / <a href="https://openskimap.org/" target="_blank" rel="noreferrer">OpenSkiMap</a>, <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a> (<a href="https://opendatacommons.org/licenses/odbl/1-0/" target="_blank" rel="noreferrer">ODbL</a>), <a href="https://skimap.org/" target="_blank" rel="noreferrer">Skimap.org</a>, <a href="https://whosonfirst.org/docs/licenses/" target="_blank" rel="noreferrer">Who's On First</a>, <a href="https://mapterhorn.com/" target="_blank" rel="noreferrer">© Mapterhorn</a>. <a href={CATALOGUE_METADATA.downloadUrl} target="_blank" rel="noreferrer">Download catalogue</a>.</p></dialog>
+    <dialog className="app-dialog settings-dialog" ref={settings} aria-labelledby="preferences-title" onClick={closeOnBackdrop}><div className="dialog-header"><div><span className="eyebrow">MAKE IT YOURS</span><h2 id="preferences-title">Your snow day.</h2></div><button className="icon-button" onClick={() => settings.current?.close()} aria-label="Close preferences"><X size={20} /></button></div>
       <fieldset className="preference-group"><legend>Forecast source</legend><label className={`source-choice ${preferences.mode === 'demo' ? 'selected' : ''}`}><input type="radio" name="source" value="demo" checked={preferences.mode === 'demo'} onChange={() => patch({ mode: 'demo' })} /><span><strong>Winter demo</strong><small>Fictional snowfall and reports for exploring the design.</small></span></label><label className={`source-choice ${preferences.mode === 'live' ? 'selected' : ''}`}><input type="radio" name="source" value="live" checked={preferences.mode === 'live'} onChange={() => patch({ mode: 'live' })} /><span><strong>Live model forecasts</strong><small>JMA, ECMWF & GFS via Open-Meteo. Official resort reports require checking.</small></span></label><p className="small muted">Yahoo, tenki.jp and Weathernews feeds aren’t connected yet. Live data requires internet access.</p></fieldset>
       <fieldset className="preference-group"><legend>Your worthwhile snowfall</legend><div className="threshold-display"><span>Minimum fresh snow</span><strong>{preferences.threshold}<small> cm</small></strong></div><label className="sr-only" htmlFor="snow-threshold">Minimum worthwhile fresh snowfall in centimeters</label><input id="snow-threshold" className="threshold-slider" type="range" min="5" max="50" step="5" value={preferences.threshold} onChange={event => patch({ threshold: Number(event.target.value) })} /><div className="range-labels"><span>5 cm · a little refresh</span><span>50 cm · deep day</span></div></fieldset>
       <fieldset className="preference-group"><legend>Mountain elevation</legend><div className="elevation-switch" role="group" aria-label="Preferred forecast elevation">{(['upper', 'base'] as const).map(value => <button key={value} aria-pressed={preferences.elevation === value} onClick={() => patch({ elevation: value })}>{value === 'upper' ? 'Upper mountain' : 'Base area'}</button>)}</div></fieldset>

@@ -10,8 +10,8 @@ interface Props {
   onClose: () => void;
 }
 
-function centimeters(value: number | null) {
-  return value === null ? '—' : Math.round(value).toLocaleString();
+function centimeters(value: number | null, exact = false) {
+  return value === null ? '—' : exact ? value.toLocaleString(undefined, { maximumFractionDigits: 1 }) : Math.round(value).toLocaleString();
 }
 
 function completeSeason(season: SeasonSnowfall) {
@@ -34,7 +34,7 @@ function SeasonChart({ seasons, selected, onSelect, id, estimate }: { seasons: S
     <div className="snow-history-section-heading"><h3 id={`${id}-chart-title`}>Snowfall by winter</h3><span>{estimate ? 'November–April · cm' : 'Published final totals · cm'}</span></div>
     <p className="snow-history-caption">Choose a winter {estimate ? 'to see its months' : 'to see its record'}. {estimate ? 'Incomplete winters' : 'Partial records and missing winters'} have no total bar.</p>
     <div className={`snow-history-chart ${seasons.length > 5 ? 'snow-history-chart-many' : ''}`} role="group" aria-label="Select a winter. Exact values are also available in the season data table.">
-      {seasons.map(season => <button key={season.season} className="snow-history-season" aria-pressed={selected === season.season} aria-label={`${season.season}: ${completeSeason(season) ? `${centimeters(season.totalCm)} centimeters` : 'incomplete records'}. Show ${estimate ? 'monthly snowfall' : 'resort record'}.`} onClick={() => onSelect(season.season)}>
+      {seasons.map(season => <button key={season.season} className="snow-history-season" aria-pressed={selected === season.season} aria-label={`${season.season}: ${completeSeason(season) ? `${centimeters(season.totalCm, true)} centimeters` : 'incomplete records'}. Show ${estimate ? 'monthly snowfall' : 'resort record'}.`} onClick={() => onSelect(season.season)}>
         <span className="snow-history-chart-value" aria-hidden="true">{completeSeason(season) ? centimeters(season.totalCm) : '—'}</span>
         <span className="snow-history-bar-space" aria-hidden="true"><span className={completeSeason(season) ? 'snow-history-bar' : 'snow-history-bar-missing'} style={{ '--snow-history-bar-height': `${completeSeason(season) ? season.totalCm! / highest * 100 : 0}%` } as CSSProperties} /></span>
         <span className="snow-history-chart-label" aria-hidden="true">{shortSeason(season.season)}</span>
@@ -65,9 +65,9 @@ function HistoryContent({ data, selected, setSelected, id }: { data: SnowfallHis
       </div> : <div className="snow-history-stats snow-history-stats-records" aria-label="Published resort record summary"><div><span>Latest final record</span><strong>{centimeters(recent?.totalCm ?? null)}<small> cm</small></strong><p>{recent?.season ?? 'Not available'}</p></div><div><span>Final records available</span><strong>{completed.length}<small> winters</small></strong><p>Within the selected period</p></div></div>}
       <SeasonChart seasons={data.seasons} selected={current?.season ?? null} onSelect={setSelected} id={id} estimate={estimate} />
       {current && <section className="snow-history-months" aria-labelledby={`${id}-month-title`}>
-        <div className="snow-history-section-heading"><h3 id={`${id}-month-title`}>{current.season}{current.monthly.length ? ' by month' : ' resort record'}</h3><span>{completeSeason(current) ? `${centimeters(current.totalCm)} cm total` : 'Incomplete winter'}</span></div>
-        {current.monthly.length ? <><div className="snow-history-month-grid">{current.monthly.map(month => <div key={month.month}><span>{monthName(month.month)}</span><strong>{month.complete ? centimeters(month.totalCm) : '—'}<small> cm</small></strong>{!month.complete && <span className="snow-history-month-gap">Missing days</span>}</div>)}</div><p className="snow-history-caption">{current.availableDays} of {current.expectedDays} days available. {completeSeason(current) ? 'The total adds fresh snowfall across these six months.' : 'Missing days prevent a reliable winter total.'}</p></> : <div className="snow-history-record">
-          <p>{current.totalCm === null ? 'No verified resort record is available for this winter.' : `${centimeters(current.totalCm)} cm ${current.complete ? 'published final total' : 'partial total; not a final winter total'}.${current.reportedAt ? ` ${current.complete ? 'Published' : 'As of'} ${current.reportedAt}.` : ''}`}</p>
+        <div className="snow-history-section-heading"><h3 id={`${id}-month-title`}>{current.season}{current.monthly.length ? ' by month' : ' resort record'}</h3><span>{completeSeason(current) ? `${centimeters(current.totalCm, true)} cm total` : 'Incomplete winter'}</span></div>
+        {current.monthly.length ? <><div className="snow-history-month-grid">{current.monthly.map(month => <div key={month.month}><span>{monthName(month.month)}</span><strong>{month.complete ? centimeters(month.totalCm, true) : '—'}<small> cm</small></strong>{!month.complete && <span className="snow-history-month-gap">Missing days</span>}</div>)}</div><p className="snow-history-caption">{current.availableDays} of {current.expectedDays} days available. {completeSeason(current) ? 'The total adds fresh snowfall across these six months.' : 'Missing days prevent a reliable winter total.'}</p></> : <div className="snow-history-record">
+          <p>{current.totalCm === null ? 'No verified resort record is available for this winter.' : `${centimeters(current.totalCm, true)} cm ${current.complete ? 'published final total' : 'partial total; not a final winter total'}.${current.reportedAt ? ` ${current.complete ? 'Published' : 'As of'} ${current.reportedAt}.` : ''}`}</p>
           {current.location && <p>Reporting location: {current.location}</p>}
           {current.notes.map(note => <p key={note}>{note}</p>)}
           <p>Monthly snowfall is not published in this imported record.</p>
@@ -76,7 +76,7 @@ function HistoryContent({ data, selected, setSelected, id }: { data: SnowfallHis
       </section>}
       <details className="snow-history-table-details">
         <summary><span>View exact season data</span><ChevronDown size={16} aria-hidden="true" /></summary>
-        <div className="snow-history-table-scroll"><table><caption>{estimate ? 'Winter snowfall totals in centimeters, November to April' : 'Published resort snowfall records; periods and reporting stations may differ'}</caption><thead><tr><th scope="col">Winter</th><th scope="col">Snowfall</th><th scope="col">{estimate ? 'Coverage' : 'Record'}</th></tr></thead><tbody>{data.seasons.map(season => <tr key={season.season}><th scope="row">{season.season}</th><td>{completeSeason(season) ? `${centimeters(season.totalCm)} cm` : !estimate && season.totalCm !== null ? `${centimeters(season.totalCm)} cm · partial` : 'Unavailable'}</td><td>{estimate ? `${season.availableDays}/${season.expectedDays} days` : completeSeason(season) ? 'Final' : season.reportedAt ? `As of ${season.reportedAt}` : 'Missing'}</td></tr>)}</tbody></table></div>
+        <div className="snow-history-table-scroll"><table><caption>{estimate ? 'Winter snowfall totals in centimeters, November to April' : 'Published resort snowfall records; periods and reporting stations may differ'}</caption><thead><tr><th scope="col">Winter</th><th scope="col">Snowfall</th><th scope="col">{estimate ? 'Coverage' : 'Record'}</th></tr></thead><tbody>{data.seasons.map(season => <tr key={season.season}><th scope="row">{season.season}</th><td>{completeSeason(season) ? `${centimeters(season.totalCm, true)} cm` : !estimate && season.totalCm !== null ? `${centimeters(season.totalCm, true)} cm · partial` : 'Unavailable'}</td><td>{estimate ? `${season.availableDays}/${season.expectedDays} days` : completeSeason(season) ? 'Final' : season.reportedAt ? `As of ${season.reportedAt}` : 'Missing'}</td></tr>)}</tbody></table></div>
       </details>
     </> : <div className="snow-history-message"><Snowflake size={26} strokeWidth={1.5} aria-hidden="true" /><h3>No winter records available</h3><p>This source does not have usable snowfall history for the selected location and period.</p></div>}
 

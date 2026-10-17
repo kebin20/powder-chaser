@@ -43,11 +43,14 @@ function validateSelection(resort: Resort, date: string, elevation: Elevation, n
 
 export function buildForecastUrl(resort: Resort, date: string, elevation: Elevation, now = new Date()): string {
   validateSelection(resort, date, elevation, now);
+  const today = japanDate(now);
   const parameters = new URLSearchParams({
     latitude: String(resort.latitude), longitude: String(resort.longitude),
     models: WEATHER_MODELS.map((model) => model.id).join(','),
     hourly: 'snowfall,temperature_2m,wind_speed_10m,rain',
-    timezone: 'Asia/Tokyo', forecast_days: '3',
+    // Both overnight windows fit 38 hourly samples. The first sample at 19:00
+    // contains snowfall for 18:00–19:00; the final one ends at 08:00 on day two.
+    timezone: 'Asia/Tokyo', start_hour: `${today}T19:00`, end_hour: `${addDays(today, 2)}T08:00`,
     temperature_unit: 'celsius', wind_speed_unit: 'kmh', precipitation_unit: 'mm',
   });
   const meters = elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
@@ -123,7 +126,7 @@ export function parseForecastResponse(
   }, retrievedAt, warnings);
 }
 
-/** Both ski mornings come from one three-day payload; the query day bounds reuse. */
+/** Both ski mornings come from one bounded payload; the query day bounds reuse. */
 function cacheKey(resort: Resort, queryDay: string, elevation: Elevation): string {
   const meters = elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
   return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${queryDay}:${meters ?? 'auto'}`;
