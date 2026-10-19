@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 371" fill="none">
+<defs><linearGradient id="cloud" x1="139" y1="47" x2="337" y2="235" gradientUnits="userSpaceOnUse"><stop stop-color="#c3e7fb"/><stop offset="1" stop-color="#b8dffd"/></linearGradient><path id="flake" d="M0-40V40M-35-20 35 20M-35 20 35-20M-13-31 0-21 13-31M-13 31 0 21 13 31M-33-4-18-10-20-27M33 4 18 10 20 27M-20 27-18 10-33 4M20-27 18-10 33-4"/></defs>
+<path d="M99 140c5-32 30-54 67-46 12-40 44-68 85-68 39 0 68 26 79 60 24-4 40 13 41 39 30-12 57 9 61 37 6 37-15 60-44 64-27 5-52-1-75-13-38 26-98 27-139 3-22 10-43 12-68 9-31-4-54-17-54-43 0-22 18-39 47-42Z" fill="url(#cloud)" stroke="#1a5183" stroke-width="8" stroke-linejoin="round"/>
+<g stroke="#248ff0" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"><use href="#flake" transform="translate(144 283)"/><use href="#flake" transform="translate(240 313)"/><use href="#flake" transform="translate(336 283)"/></g>
+</svg>

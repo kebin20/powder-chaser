@@ -81,7 +81,7 @@ npm run preview
 | `npm run build` | Type-check, compile, and stamp the service worker release |
 | `npm run preview` | Serve the compiled app locally |
 | `npm run icons` | Regenerate PNG/ICO icons from the original SVG |
-| `npm run images` | Reproduce the optimised WebP hero assets from the original PNGs |
+| `npm run images` | Reproduce the legacy WebP assets from the original PNGs; current SVGs are authored sources |
 | `npm run reports:refresh` | Collect supported official reports into the local public data file |
 | `npm run catalogue:import` | Refresh the licensed Japan ski-area catalogue from OpenSkiData |
 
@@ -96,15 +96,15 @@ Vite exposes `VITE_` variables to visitors. Future licensed API credentials belo
 
 ## Performance and layout
 
-The two static hero illustrations use **53,450 bytes combined**, down from **252,390 bytes** for the original PNGs: **78.8% smaller**. Vite publishes the WebP images with content hashes. The original PNGs remain as reproducible sources and for compatibility with earlier versions; the current UI loads the WebP assets.
+The two static hero illustrations are now small, authored SVG drawings: **2,812 bytes combined**, down from **53,450 bytes** for the previous WebP pair (**94.7% smaller**). They retain the alpine colours, composition and dimensions, stay sharp at high display densities, and contain no animation, scripts or external resources. Vite publishes them with content-hashed URLs. Earlier PNG/WebP files remain as compatibility and source assets; the current UI uses the SVGs.
 
 The build records every compiled asset for the service worker, including images and any deferred chunks, and deduplicates entry-point URLs before precaching. Known assets in the current release are served from the cache first. Live and staging keep separate offline caches, and the worker bypasses external weather requests.
 
-Live forecasting shares one bounded **38-hour provider response** across both upcoming ski mornings for the same resort, elevation, and Japan query date. It requests only the hourly readings needed for the two overnight windows, instead of all 72 hours of a three-day response. The **45-minute cache** holds at most **32 responses** and does not reuse a previous Japan query day's entry after midnight. Concurrent views share a request; cancelling one view does not cancel another view's forecast. Failed loads retry once when the connection returns, and resuming the app updates the ski dates immediately after Japan midnight.
+Live forecasting shares one bounded **38-hour provider response** across both upcoming ski mornings for the same resort, elevation, and Japan query date. It requests only the hourly readings needed for the two overnight windows, instead of all 72 hours of a three-day response. The **45-minute cache** holds at most **32 responses** and does not reuse a previous Japan query day's entry after midnight. Concurrent views share a request; cancelling one view does not cancel another view's forecast. Browser-cache hydration runs once per app load, and only complete, validated responses for both mornings persist. Saved forecasts retain their original retrieval time. Live and staging use separate weather-cache keys. Failed loads retry once when the connection returns, and resuming the app updates the ski dates immediately after Japan midnight.
 
-Desktop screens use a wider main panel with larger text, a taller hero, and side-by-side forecast and planning cards. Mobile keeps its compact hero and bottom navigation. Keyboard users can skip to the main content; settings are labelled, and each view has one visible main heading.
+Desktop screens use a wider main panel with larger text, a taller hero, and side-by-side forecast and planning cards. Mobile keeps its compact hero and bottom navigation and does not build the hidden desktop catalogue. The sidebar mounts when the viewport crosses the desktop breakpoint. Keyboard users can skip to the main content; settings are labelled, and each view has one visible main heading.
 
-The catalogue has its own content-hashed data chunk for independent caching across UI updates; it is still part of the initial download. The history view is a separate JavaScript chunk and only requests archive data after it is opened. Catalogue lists show 24 rows at a time and search the full local dataset. The closed resort chooser does not render its result rows. A cached ten-winter history can serve its complete five-winter subset without another archive request. See the [0.1.2 performance audit](docs/performance.md) for its benchmark conditions and results; the expanded catalogue and history feature were added after that benchmark. The [0.1.5 reliability and performance audit](docs/audit-0.1.5.md) records the latest measured changes and checks. Asset sizes describe downloaded files, not a guaranteed page-load time on every connection.
+The catalogue has its own content-hashed data chunk for independent caching across UI updates; it is still part of the initial download. Production builds losslessly pack repeated fields and validate a complete roundtrip against the canonical JSON. All names, Japanese aliases, coordinates, heights, source links and saved IDs are retained. The search index is created only when a nonempty query needs it. React has a separate stable runtime chunk so app-only updates can reuse it. The history view is a separate JavaScript chunk and only requests archive data after it is opened. Catalogue lists show 24 rows at a time and search the full local dataset. The closed resort chooser does not render its result rows. A cached ten-winter history can serve its complete five-winter subset without another archive request. See the [0.1.2 performance audit](docs/performance.md) for its benchmark conditions and results; the expanded catalogue and history feature were added after that benchmark. The [0.1.5 reliability audit](docs/audit-0.1.5.md) and [0.1.7 startup audit](docs/audit-0.1.7.md) document later changes, measurements and conditions. Asset sizes describe downloaded files, not a guaranteed page-load time on every connection.
 
 ## Development and previews
 
@@ -142,7 +142,7 @@ src/
   main.tsx                App entry and service worker registration
   data/                   Licensed Japan catalogue, curated resorts, sample fixtures
   components/             Lazy historical snowfall dialog and charts
-  assets/                 Optimised WebP hero illustrations
+  assets/                 Static SVG hero artwork and legacy WebP sources
   lib/                    Japan dates, snapshots, recommendation and forecast logic
   types.ts                Shared data contracts
 public/
@@ -153,10 +153,12 @@ scripts/
   generate-icons.mjs      Reproducible icon generation with Sharp
   optimize-images.mjs     Reproducible WebP generation from original hero PNGs
   stamp-build.mjs         Release-specific offline cache identifier
+  catalogue-build.ts      Lossless production catalogue compaction
   import-japan-resorts.mjs Reproducible licensed catalogue import
 docs/
   performance.md          Earlier performance benchmark conditions and results
-  audit-0.1.5.md           Reliability fixes and latest measured improvements
+  audit-0.1.5.md           Reliability fixes and measured improvements
+  audit-0.1.7.md           Startup size, paint and browser validation
   resort-catalogue.md      Catalogue coverage, sources, licence and import
   history.md              Resort records, estimate method and cache behaviour
   resort-reports.md        Morning report sources, timestamps and collection
@@ -181,11 +183,12 @@ Expand verified official report coverage and licensed Japanese forecast feeds, i
 ## Changelog
 
 <details>
-<summary>0.1.6 · 18 October 2026 · Compare favourites and check the mountain</summary>
+<summary>0.1.7 · 20 October 2026 · Lighter startup</summary>
 
-- Compare forecasts, recommendations and concerns for saved resorts in one view.
-- Check dated resort snow/lift reports inside the existing details dropdown.
-- Keep report collection and weather requests bounded; unsupported or stale reports stay clear.
+- Smaller static SVG hero artwork and losslessly compacted catalogue delivery.
+- Mobile skips the hidden desktop list; search indexing happens on first use.
+- A stable React runtime cache and leaner, validated forecast-cache hydration.
+- Full search, saved resorts, reports, history and offline features retained.
 
 [Open the full changelog](CHANGELOG.md). Detailed releases are collapsible so this README stays easy to scan.
 

@@ -2,6 +2,24 @@ import type { OvernightWindow, TripDate } from '../types';
 
 export const JAPAN_TIMEZONE = 'Asia/Tokyo';
 const HOUR_MS = 3_600_000;
+// These options never change. Reuse the locale formatters across forecasts,
+// comparisons and resume checks instead of allocating them on every call.
+const japanDateFormatter = new Intl.DateTimeFormat('en-CA', {
+  timeZone: JAPAN_TIMEZONE,
+  year: 'numeric', month: '2-digit', day: '2-digit',
+});
+const weekdayFormatter = new Intl.DateTimeFormat('en', {
+  timeZone: JAPAN_TIMEZONE, weekday: 'long',
+});
+const shortDateFormatter = new Intl.DateTimeFormat('en', {
+  timeZone: JAPAN_TIMEZONE, month: 'short', day: 'numeric',
+});
+const shortWeekdayFormatter = new Intl.DateTimeFormat('en', {
+  timeZone: JAPAN_TIMEZONE, weekday: 'short',
+});
+const timeFormatter = new Intl.DateTimeFormat('en', {
+  timeZone: JAPAN_TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false,
+});
 
 /** Date-only arithmetic avoids the execution host's timezone and DST. */
 export function addDays(date: string, count: number): string {
@@ -11,29 +29,21 @@ export function addDays(date: string, count: number): string {
 }
 
 export function japanDate(now = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone: JAPAN_TIMEZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-  }).format(now);
+  return japanDateFormatter.format(now);
 }
 
-/** Two upcoming ski mornings fit a bounded 3-day API response (including today). */
+/** Both upcoming ski mornings fit the shared 38-hour provider response. */
 export function getTripDates(now = new Date()): TripDate[] {
+  const today = japanDate(now);
   return [1, 2].map((offset) => {
-    const date = addDays(japanDate(now), offset);
+    const date = addDays(today, offset);
     const value = new Date(`${date}T12:00:00+09:00`);
     return {
       id: date,
       date,
-      label: offset === 1 ? 'Tomorrow' : new Intl.DateTimeFormat('en', {
-        timeZone: JAPAN_TIMEZONE, weekday: 'long',
-      }).format(value),
-      shortLabel: new Intl.DateTimeFormat('en', {
-        timeZone: JAPAN_TIMEZONE, month: 'short', day: 'numeric',
-      }).format(value),
-      weekday: new Intl.DateTimeFormat('en', {
-        timeZone: JAPAN_TIMEZONE, weekday: 'short',
-      }).format(value),
+      label: offset === 1 ? 'Tomorrow' : weekdayFormatter.format(value),
+      shortLabel: shortDateFormatter.format(value),
+      weekday: shortWeekdayFormatter.format(value),
     };
   });
 }
@@ -59,7 +69,5 @@ export function overnightHourEnds(date: string): string[] {
 
 export function formatJapanTime(iso: string | null): string {
   if (!iso) return 'Not available';
-  return `${new Intl.DateTimeFormat('en', {
-    timeZone: JAPAN_TIMEZONE, hour: '2-digit', minute: '2-digit', hour12: false,
-  }).format(new Date(iso))} JST`;
+  return `${timeFormatter.format(new Date(iso))} JST`;
 }

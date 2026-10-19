@@ -1,8 +1,8 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type RefObject, type MouseEvent } from 'react';
 import { ChartNoAxesColumn, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Cloud, CloudRain, CloudSun, ExternalLink, Heart, Info, MapPin, MountainSnow, Search, SlidersHorizontal, Snowflake, Star, Thermometer, WifiOff, Wind, X } from 'lucide-react';
 import { CATALOGUE_METADATA, RESORTS, RESORT_REGIONS, searchResorts } from './data/resorts';
-import cloudImage from './assets/snow-cloud.webp';
-import treeImage from './assets/snowy-tree.webp';
+import cloudImage from './assets/snow-cloud.svg?no-inline';
+import treeImage from './assets/snowy-tree.svg?no-inline';
 import HistoryBoundary from './components/HistoryBoundary';
 import FeatureBoundary from './components/FeatureBoundary';
 import { getDemoSnapshot, hasDemoScenario } from './data/demo';
@@ -75,6 +75,17 @@ function useSnapshot(resort: Resort, date: string, elevation: Elevation, mode: D
     };
   }, [mode, enabled, key, state]);
   return { snapshot: demo || (state.key === key ? state.data : null), error: mode === 'demo' && !hasDemoScenario(resort) ? 'This resort has no fictional winter demo. Load live forecasts to see its current outlook.' : state.key === key ? state.error : null, loading: mode === 'live' && enabled && (state.key !== key || (!state.data && !state.error)) };
+}
+/** Match the CSS breakpoint so phones do not build a hidden desktop catalogue. */
+function useDesktopLayout() {
+  const [desktop, setDesktop] = useState(() => window.matchMedia('(min-width: 851px)').matches);
+  useEffect(() => {
+    const query = window.matchMedia('(min-width: 851px)');
+    const update = () => setDesktop(query.matches);
+    update(); query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
+  return desktop;
 }
 function closeOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
   if (event.target !== event.currentTarget) return;
@@ -158,6 +169,7 @@ function ResortList({ items, favorites, onSelect, onFavorite, selectedId, empty,
   </div>;
 }
 export default function App() {
+  const desktop = useDesktopLayout();
   const [preferences, setPreferences] = useState(readPreferences);
   const [view, setView] = useState<View>('forecast');
   const [dates, setDates] = useState(getTripDates);
@@ -214,20 +226,20 @@ export default function App() {
     observer.observe(list);
     measure();
     return () => observer.disconnect();
-  }, [filtered.length]);
+  }, [filtered.length, desktop]);
   const reload = () => { clearWeatherCache(); setRefresh(value => value + 1); };
   const filterControls = <><label className="search-field"><Search size={15} /><input placeholder="Resort name · English or 日本語" aria-label="Search resorts" value={query} onChange={event => setQuery(event.target.value)} /></label><label className="prefecture-filter"><span>Prefecture</span><select aria-label="Filter by prefecture" value={region} onChange={event => setRegion(event.target.value)}><option value="All">All Japan · {RESORTS.length}</option>{RESORT_REGIONS.map(item => <option key={item} value={item}>{item}</option>)}</select></label></>;
   const navigate = (newView: View) => { setView(newView); window.scrollTo({ top: 0 }); };
   const nav = <nav className="app-navigation" aria-label="Main navigation">{([{ id: 'forecast', label: 'Forecast', Icon: Snowflake }, { id: 'favorites', label: 'Favorites', Icon: Star }, { id: 'plan', label: 'Plan a trip', Icon: CalendarDays }] as const).map(item => <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => navigate(item.id)}><item.Icon size={19} /><span>{item.label}</span></button>)}</nav>;
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
-    <aside className="desktop-sidebar">
+    {desktop && <aside className="desktop-sidebar">
       <a className="brand" href={BASE} aria-label="Powder Chaser home"><MountainSnow size={25} strokeWidth={1.5} /><span>Powder Chaser</span></a>
       <div className="sidebar-intro"><span className="eyebrow">JAPAN, ONE SNOW DAY AT A TIME</span><h2>Follow the<br />fresh snow.</h2><p>A clearer view of your mountains.</p></div>
       {nav}
       <div className="sidebar-discover"><div className="section-heading"><h2>Find your mountain</h2><span>{RESORTS.length} resorts</span></div>{filterControls}<ResortList items={filtered} favorites={preferences.favorites} onSelect={selectResort} onFavorite={toggleFavorite} selectedId={resort.id} listRef={sidebarList} empty="No resorts match. Try another name or region." />{resortListOverflows && <p className="resort-scroll-hint"><ChevronDown size={12} aria-hidden="true" />Scroll for more resorts</p>}</div>
       <div className="sidebar-bottom"><span><MapPin size={12} />Made for Japan</span><button className="text-button" onClick={() => settings.current?.showModal()}><SlidersHorizontal size={13} />Preferences</button></div>
-    </aside>
+    </aside>}
     <div className="main-column">
       <header className="mobile-header"><a className="brand" href={BASE}><MountainSnow size={22} strokeWidth={1.5} /><span>Powder Chaser</span></a><div className="header-actions">{import.meta.env.VITE_APP_ENV === 'staging' && <span className="environment-badge">STAGING</span>}<button className="icon-button settings-button" onClick={() => settings.current?.showModal()} aria-label="Open preferences"><SlidersHorizontal size={18} /></button></div></header>
       <div className="desktop-topline"><span>A little closer to powder.</span><div className="header-actions">{import.meta.env.VITE_APP_ENV === 'staging' && <span className="environment-badge">STAGING</span>}<button className="icon-button" onClick={() => settings.current?.showModal()} aria-label="Open preferences"><SlidersHorizontal size={17} /></button></div></div>
