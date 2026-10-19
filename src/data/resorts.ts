@@ -1,5 +1,5 @@
 import type { Resort } from '../types';
-import catalogue from './japan-resorts.json';
+import catalogue from './client-catalogue';
 
 /** Sampling coordinates/elevations, not exact lift or observation stations. */
 function resort(
@@ -81,13 +81,19 @@ function searchText(value: string) {
   return value.normalize('NFKC').toLowerCase().normalize('NFD').replace(/\p{Mark}/gu, '');
 }
 
-const searchableResorts = new Map(RESORTS.map(value => [value.id,
-  searchText([value.name, value.region, value.regionJapanese, value.locality ?? '', ...value.aliases].join(' ')),
-]));
+let searchableResorts: Map<string, string> | undefined;
+
+function searchIndex() {
+  searchableResorts ??= new Map(RESORTS.map(value => [value.id,
+    searchText([value.name, value.region, value.regionJapanese, value.locality ?? '', ...value.aliases].join(' ')),
+  ]));
+  return searchableResorts;
+}
 
 /** Search English/Japanese names, aliases, prefectures and localities together. */
 export function searchResorts(query: string, region = 'All'): Resort[] {
   const terms = searchText(query).trim().split(/\s+/).filter(Boolean);
+  const index = terms.length ? searchIndex() : undefined;
   return RESORTS.filter(value => (region === 'All' || region === value.region)
-    && terms.every(term => searchableResorts.get(value.id)?.includes(term)));
+    && terms.every(term => index?.get(value.id)?.includes(term)));
 }

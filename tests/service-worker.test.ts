@@ -15,7 +15,7 @@ function worker(scope = 'https://example.com/powder-chaser/') {
   const handlers = new Map<string, (event: EventStub) => void>();
   const entries = new Map<string, Response>();
   const cache = {
-    match: vi.fn(async (request: RequestStub | string) => entries.get(typeof request === 'string' ? request : request.url)?.clone()),
+    match: vi.fn(async (request: RequestStub | string, _options?: CacheQueryOptions) => entries.get(typeof request === 'string' ? request : request.url)?.clone()),
     put: vi.fn(async (request: RequestStub | string, response: Response) => {
       entries.set(typeof request === 'string' ? request : request.url, response.clone());
     }),
@@ -84,6 +84,31 @@ describe('release-scoped offline assets', () => {
       expect(await (await app.request(url))?.text()).toBe(`cached:${url}`);
     }
     expect(app.network).not.toHaveBeenCalled();
+  });
+
+  it.each(['script', 'style'])('reuses a precached %s despite Origin variation in its later request', async (destination) => {
+    const app = worker();
+    await app.lifecycle('install');
+    const url = new URL(compiled[1], app.scope).href;
+    // The installer fetched without Origin; CORS module/style loads include it.
+    // Cache.match treats these as different variants unless matching is relaxed.
+    app.cache.match.mockImplementation(async (_request, options) => options?.ignoreVary
+      ? new Response('installed feature', { headers: { Vary: 'Origin' } }) : undefined);
+    app.network.mockClear();
+    app.network.mockRejectedValue(new Error('Offline'));
+
+    expect(await (await app.request(url, destination))?.text()).toBe('installed feature');
+    expect(app.network).not.toHaveBeenCalled();
+  });
+
+  it('keeps variant matching for static URLs outside the fixed release', async () => {
+    const app = worker();
+    app.cache.match.mockImplementation(async (_request, options) => options?.ignoreVary
+      ? new Response('a different origin variant') : undefined);
+    const url = new URL('other/image.png', app.scope).href;
+
+    expect(await (await app.request(url))?.text()).toBe(`network:${url}`);
+    expect(app.network).toHaveBeenCalledOnce();
   });
 
   it('leaves external weather requests outside the service worker', async () => {
