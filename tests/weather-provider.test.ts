@@ -129,6 +129,7 @@ describe('live request and cache behavior', () => {
   afterEach(() => {
     clearWeatherCache();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
     vi.useRealTimers();
   });
   const successfulFetch = () => vi.fn().mockImplementation(async () => ({
@@ -346,4 +347,166 @@ describe('live request and cache behavior', () => {
     await assertion;
     expect(storage.size).toBe(0);
   });
+
+  const reloadWeatherModule = async () => {
+    vi.resetModules();
+    return import('../src/lib/weather');
+  };
+
+  it('restores both mornings after a cold reload without changing retrieval time', async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const original = await fetchLiveSnapshot(RESORT, DATE, 'upper');
+    vi.setSystemTime(new Date(NOW.getTime() + 10 * 60_000));
+    const reloaded = await reloadWeatherModule();
+    const first = await reloaded.fetchLiveSnapshot(RESORT, DATE, 'upper');
+    const second = await reloaded.fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(first.typicalCm).toBe(28);
+    expect(second.typicalCm).toBe(42);
+    expect(first.updatedAt).toBe(original.updatedAt);
+    expect(second.models.every((model) => model.updatedAt === original.updatedAt)).toBe(true);
+  });
+
+  it('reads browser storage once rather than reparsing it on every uncached resort', async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    const getItem = vi.spyOn(localStorage, 'getItem');
+    const reloaded = await reloadWeatherModule();
+    await reloaded.fetchLiveSnapshot(RESORT, DATE, 'upper');
+    await reloaded.fetchLiveSnapshot({ ...RESORT, id: 'other-area' }, DATE, 'upper');
+    await reloaded.fetchLiveSnapshot(RESORT, DATE, 'base');
+    expect(getItem).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it.each([
+    ['expired', (entry: Record<string, unknown>) => { entry.storedAt = NOW.getTime() - WEATHER_CACHE_TTL_MS; }],
+    ['future timestamp', (entry: Record<string, unknown>) => { entry.storedAt = NOW.getTime() + 1; }],
+    ['invalid timestamp', (entry: Record<string, unknown>) => { entry.storedAt = 'recent'; }],
+    ['previous Japan query day', (entry: Record<string, unknown>) => { entry.queryDay = '2026-01-19'; }],
+    ['different coordinate', (entry: Record<string, unknown>) => {
+      const key = JSON.parse(entry.key as string); key[1] += 0.01; entry.key = JSON.stringify(key);
+    }],
+    ['different sampling height', (entry: Record<string, unknown>) => {
+      const key = JSON.parse(entry.key as string); key[4] += 10; entry.key = JSON.stringify(key);
+    }],
+    ['different weather models', (entry: Record<string, unknown>) => {
+      const key = JSON.parse(entry.key as string); key[5] = 'era5'; entry.key = JSON.stringify(key);
+    }],
+    ['wrong units', (entry: Record<string, unknown>) => {
+      (entry.response as ReturnType<typeof sharedWindowResponse>).hourly_units.snowfall_jma_msm = 'inch';
+    }],
+    ['incomplete second morning', (entry: Record<string, unknown>) => {
+      (entry.response as ReturnType<typeof sharedWindowResponse>).hourly.snowfall_jma_msm[37] = null;
+    }],
+    ['missing second-morning quality data', (entry: Record<string, unknown>) => {
+      (entry.response as ReturnType<typeof sharedWindowResponse>).hourly.wind_speed_10m_gfs_global[37] = null;
+    }],
+  ])('does not reuse a persisted forecast with %s', async (_label, tamper) => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    await fetchLiveSnapshot(RESORT, DATE, 'upper');
+    const [key, raw] = [...storage.entries()][0];
+    const entries = JSON.parse(raw) as Record<string, unknown>[];
+    tamper(entries[0]);
+    storage.set(key, JSON.stringify(entries));
+    const reloaded = await reloadWeatherModule();
+    expect((await reloaded.fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not persist partial live payloads, even when the selected morning is complete', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => providerResponse() });
+    vi.stubGlobal('fetch', fetchMock);
+    expect((await fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
+    await fetchLiveSnapshot(RESORT, DATE, 'upper');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(storage.size).toBe(0);
+    const reloaded = await reloadWeatherModule();
+    await reloaded.fetchLiveSnapshot(RESORT, DATE, 'upper');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('separates live and staging cache storage and clearing', async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubEnv('BASE_URL', '/powder-chaser/');
+    const production = await reloadWeatherModule();
+    await production.fetchLiveSnapshot(RESORT, DATE, 'upper');
+    vi.stubEnv('BASE_URL', '/powder-chaser/staging/');
+    const staging = await reloadWeatherModule();
+    await staging.fetchLiveSnapshot(RESORT, DATE, 'upper');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect([...storage.keys()].sort()).toEqual([
+      'powder-weather-v4:/powder-chaser/', 'powder-weather-v4:/powder-chaser/staging/',
+    ]);
+    staging.clearWeatherCache();
+    expect([...storage.keys()]).toEqual(['powder-weather-v4:/powder-chaser/']);
+    expect((await production.fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores malformed JSON and continues when storage reads and writes throw', async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('localStorage', {
+      getItem: () => '{broken',
+      setItem: () => { throw new DOMException('Full', 'QuotaExceededError'); },
+      removeItem: () => { throw new DOMException('Denied', 'SecurityError'); },
+    });
+    const reloaded = await reloadWeatherModule();
+    expect((await reloaded.fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
+    await reloaded.fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
+    reloaded.clearWeatherCache();
+    vi.stubGlobal('localStorage', {
+      getItem: () => { throw new DOMException('Denied', 'SecurityError'); },
+      setItem: () => { throw new DOMException('Denied', 'SecurityError'); },
+      removeItem: () => { throw new DOMException('Denied', 'SecurityError'); },
+    });
+    const denied = await reloadWeatherModule();
+    expect((await denied.fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('drops yesterday’s persisted query on a cold reload immediately after Japan midnight', async () => {
+    vi.setSystemTime(new Date('2026-01-20T14:59:00Z'));
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    await fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper');
+    vi.setSystemTime(new Date('2026-01-20T15:01:00Z'));
+    fetchMock.mockImplementation(async () => ({ ok: true, json: async () => sharedWindowResponse(addDays(DATE, 1)) }));
+    const reloaded = await reloadWeatherModule();
+    expect((await reloaded.fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper')).typicalCm).toBe(28);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((JSON.parse([...storage.values()][0]) as { queryDay: string }[]).every((entry) => entry.queryDay === '2026-01-21')).toBe(true);
+  });
+
+  it('retains working memory cache when browser storage does not exist', async () => {
+    const fetchMock = successfulFetch();
+    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('localStorage', undefined);
+    const reloaded = await reloadWeatherModule();
+    expect((await reloaded.fetchLiveSnapshot(RESORT, DATE, 'upper')).typicalCm).toBe(28);
+    expect((await reloaded.fetchLiveSnapshot(RESORT, addDays(DATE, 1), 'upper')).typicalCm).toBe(42);
+    reloaded.clearWeatherCache();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps reloads uncached after clearing pending work, even if the old request finishes', async () => {
+    let finishOld!: (value: unknown) => void;
+    const fetchMock = vi.fn().mockImplementationOnce(() => new Promise(resolve => { finishOld = resolve; }))
+      .mockImplementation(async () => ({ ok: true, json: async () => sharedWindowResponse() }));
+    vi.stubGlobal('fetch', fetchMock);
+    const original = await reloadWeatherModule();
+    const oldRequest = original.fetchLiveSnapshot(RESORT, DATE, 'upper');
+    original.clearWeatherCache();
+    finishOld({ ok: true, json: async () => sharedWindowResponse() });
+    await oldRequest;
+    expect(storage.size).toBe(0);
+    const reloaded = await reloadWeatherModule();
+    await reloaded.fetchLiveSnapshot(RESORT, DATE, 'upper');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
 });

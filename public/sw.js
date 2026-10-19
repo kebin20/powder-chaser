@@ -29,8 +29,8 @@ async function openRuntimeCache() {
   try { return await caches.open(CACHE_NAME); } catch { return null; }
 }
 
-async function readRuntimeCache(cache, request) {
-  try { return await cache?.match(request); } catch { return undefined; }
+async function readRuntimeCache(cache, request, options) {
+  try { return await cache?.match(request, options); } catch { return undefined; }
 }
 
 async function writeRuntimeCache(cache, request, response) {
@@ -90,8 +90,11 @@ self.addEventListener('fetch', (event) => {
   const isHashedAsset = /\/assets\/[^/]+-[A-Za-z0-9_-]{8,}\.[^/]+$/.test(url.pathname);
   event.respondWith((async () => {
     const cache = await openRuntimeCache();
-    const cached = await readRuntimeCache(cache, request);
-    if ((isHashedAsset || RELEASE_URLS.has(url.href)) && cached) return cached;
+    // These URLs identify fixed release content. A server's Vary: Origin must
+    // not hide a precached file from its later same-origin CORS module request.
+    const fixedAsset = isHashedAsset || RELEASE_URLS.has(url.href);
+    const cached = await readRuntimeCache(cache, request, fixedAsset ? { ignoreVary: true } : undefined);
+    if (fixedAsset && cached) return cached;
     try {
       const response = await fetch(request);
       if (response.ok) await writeRuntimeCache(cache, request, response);

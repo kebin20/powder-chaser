@@ -7,6 +7,26 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.7 — 2026-10-20</strong> · Lighter startup</summary>
+
+### Improved
+
+- Replace the two static WebP hero illustrations with authored SVG equivalents, reducing their combined source size from 53,450 to 2,812 bytes while keeping the 2D alpine design.
+- Losslessly compact catalogue delivery at build time. The compiled catalogue is 53.5% smaller as JavaScript text and 18% smaller with consistent gzip compression; every canonical source field and all searchable resorts remain intact.
+- Skip the hidden desktop sidebar on mobile and mount it when resizing into the desktop layout. Build the full search index only when a query needs it.
+- Isolate React in a stable runtime chunk so app-only updates can reuse it; cold-start runtime bytes are essentially unchanged.
+- Hydrate the bounded browser forecast cache once, scope storage by deployment, validate both ski mornings before persistence and retain original retrieval timestamps. Partial forecasts stay in memory only; cache failures remain nonfatal.
+- Keep precached static feature files usable offline when a server varies response headers by Origin; navigation, unknown resources and live data retain their existing handling.
+- Reuse Japan date/time formatters instead of repeatedly allocating them.
+
+### Verification
+
+- 166 behavioural tests pass, including importing the actual production catalogue and checking every source field, cache reload/scope/expiry/validation and existing forecast, history, report and service-worker cases.
+- Production builds and browser checks cover responsive layout/resizing, Japanese search, favourites, SVG artwork and deferred features offline. See [startup measurements and their limits](docs/audit-0.1.7.md).
+
+</details>
+
+<details>
 <summary><strong>0.1.6 — 2026-10-18</strong> · Compare favourites and check the mountain</summary>
 
 ### Added

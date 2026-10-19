@@ -6,9 +6,11 @@ import { assembleSnapshot } from './snapshot';
 
 export const WEATHER_CACHE_TTL_MS = 45 * 60 * 1000;
 export const WEATHER_CACHE_MAX_ENTRIES = 32;
-const CACHE_VERSION = 'powder-weather-v3';
+const CACHE_VERSION = 'powder-weather-v4';
+const STORAGE_KEY = `${CACHE_VERSION}:${import.meta.env.BASE_URL}`;
+const MODEL_IDS = WEATHER_MODELS.map((model) => model.id).join(',');
 const REQUEST_TIMEOUT_MS = 15_000;
-interface CacheEntry { key: string; storedAt: number; response: unknown }
+interface CacheEntry { key: string; queryDay: string; storedAt: number; response: unknown }
 interface PendingRequest {
   controller: AbortController;
   consumers: Set<symbol>;
@@ -16,6 +18,8 @@ interface PendingRequest {
   promise: Promise<CacheEntry>;
 }
 const memoryCache = new Map<string, CacheEntry>();
+const persistentKeys = new Set<string>();
+let storageLoaded = false;
 const pendingRequests = new Map<string, PendingRequest>();
 let cacheGeneration = 0;
 
@@ -46,7 +50,7 @@ export function buildForecastUrl(resort: Resort, date: string, elevation: Elevat
   const today = japanDate(now);
   const parameters = new URLSearchParams({
     latitude: String(resort.latitude), longitude: String(resort.longitude),
-    models: WEATHER_MODELS.map((model) => model.id).join(','),
+    models: MODEL_IDS,
     hourly: 'snowfall,temperature_2m,wind_speed_10m,rain',
     // Both overnight windows fit 38 hourly samples. The first sample at 19:00
     // contains snowfall for 18:00–19:00; the final one ends at 08:00 on day two.
@@ -72,10 +76,7 @@ function providerFields(response: unknown) {
 }
 
 /** No zero fill: every preceding-hour snow/rain sum requires all 14 expected hours. */
-export function parseForecastResponse(
-  response: unknown, resort: Resort, date: string, elevation: Elevation,
-  retrievedAt = new Date().toISOString(),
-): WeatherSnapshot {
+function providerWindow(response: unknown, date: string, retrievedAt: string) {
   const { hourly, units } = providerFields(response);
   const timeIndices = new Map<string, number>();
   const duplicates = new Set<string>();
@@ -116,6 +117,14 @@ export function parseForecastResponse(
       issuedAt: null,
     };
   });
+  return { models, warnings };
+}
+
+export function parseForecastResponse(
+  response: unknown, resort: Resort, date: string, elevation: Elevation,
+  retrievedAt = new Date().toISOString(),
+): WeatherSnapshot {
+  const { models, warnings } = providerWindow(response, date, retrievedAt);
   warnings.push('Lift and terrain access for your ski date is unverified. Check the morning resort check and official website.');
   return assembleSnapshot('live', resort, date, elevation, models, {
     snowfall24hCm: null, depthCm: null, location: 'No observation is assigned to this forecast height',
@@ -129,56 +138,97 @@ export function parseForecastResponse(
 /** Both ski mornings come from one bounded payload; the query day bounds reuse. */
 function cacheKey(resort: Resort, queryDay: string, elevation: Elevation): string {
   const meters = elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
-  return `${CACHE_VERSION}:${resort.id}:${resort.latitude}:${resort.longitude}:${queryDay}:${meters ?? 'auto'}`;
+  return JSON.stringify([resort.id, resort.latitude, resort.longitude, queryDay, meters ?? 'auto', MODEL_IDS]);
+}
+
+function validStoredKey(key: string, queryDay: string): boolean {
+  try {
+    const parts: unknown = JSON.parse(key);
+    if (!Array.isArray(parts) || parts.length !== 6) return false;
+    const [id, latitude, longitude, day, meters, models] = parts;
+    return typeof id === 'string' && id.length > 0
+      && typeof latitude === 'number' && Number.isFinite(latitude) && latitude >= 24 && latitude <= 46
+      && typeof longitude === 'number' && Number.isFinite(longitude) && longitude >= 122 && longitude <= 146
+      && day === queryDay && models === MODEL_IDS
+      && (meters === 'auto' || (typeof meters === 'number' && Number.isFinite(meters) && meters >= 0 && meters <= 4000));
+  } catch { return false; }
+}
+
+/** Incomplete forecasts may be useful in memory, but should not survive a reload. */
+function completePayload(entry: CacheEntry): boolean {
+  try {
+    return [1, 2].every((days) => providerWindow(
+      entry.response, addDays(entry.queryDay, days), new Date(entry.storedAt).toISOString(),
+    ).models.every((model) => model.complete && model.rainMm !== null && model.tempC !== null && model.windKph !== null));
+  } catch { return false; }
 }
 
 function pruneCache(now: number) {
+  const queryDay = japanDate(new Date(now));
   for (const [key, entry] of memoryCache) {
-    if (entry.storedAt > now || now - entry.storedAt >= WEATHER_CACHE_TTL_MS) memoryCache.delete(key);
+    if (entry.queryDay !== queryDay || entry.storedAt > now || now - entry.storedAt >= WEATHER_CACHE_TTL_MS) {
+      memoryCache.delete(key);
+      persistentKeys.delete(key);
+    }
   }
   while (memoryCache.size > WEATHER_CACHE_MAX_ENTRIES) {
     const oldest = [...memoryCache.values()].sort((a, b) => a.storedAt - b.storedAt)[0];
-    if (oldest) memoryCache.delete(oldest.key);
+    if (oldest) {
+      memoryCache.delete(oldest.key);
+      persistentKeys.delete(oldest.key);
+    }
   }
 }
 
 function readCache(key: string, now: number): CacheEntry | undefined {
   pruneCache(now);
-  const memory = memoryCache.get(key);
-  if (memory) return memory;
-  try {
-    const raw = globalThis.localStorage?.getItem(CACHE_VERSION);
-    const entries: unknown = raw ? JSON.parse(raw) : null;
-    if (Array.isArray(entries)) {
-      // Re-parse the payload before use; browser storage is never a trusted snapshot.
-      for (const value of entries.slice(-WEATHER_CACHE_MAX_ENTRIES)) {
-        if (record(value) && typeof value.key === 'string' && value.key.startsWith(`${CACHE_VERSION}:`)
-          && typeof value.storedAt === 'number' && Number.isFinite(value.storedAt)
-          && value.storedAt <= now && now - value.storedAt < WEATHER_CACHE_TTL_MS) {
-          memoryCache.set(value.key, { key: value.key, storedAt: value.storedAt, response: value.response });
+  if (!storageLoaded) {
+    storageLoaded = true;
+    try {
+      const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
+      const entries: unknown = raw ? JSON.parse(raw) : null;
+      const queryDay = japanDate(new Date(now));
+      if (Array.isArray(entries)) {
+        for (const value of entries.slice(-WEATHER_CACHE_MAX_ENTRIES)) {
+          if (record(value) && typeof value.key === 'string' && value.queryDay === queryDay
+            && validStoredKey(value.key, queryDay) && typeof value.storedAt === 'number' && Number.isFinite(value.storedAt)
+            && value.storedAt <= now && now - value.storedAt < WEATHER_CACHE_TTL_MS) {
+            const entry = { key: value.key, queryDay, storedAt: value.storedAt, response: value.response };
+            // Validate both ski mornings, every model and units before restoring.
+            if (completePayload(entry)) {
+              memoryCache.set(entry.key, entry);
+              persistentKeys.add(entry.key);
+            }
+          }
         }
       }
-    }
-  } catch { /* Cache is optional when storage is denied or full. */ }
-  pruneCache(now);
+    } catch { /* Cache is optional when storage is denied or unreadable. */ }
+    pruneCache(now);
+  }
   return memoryCache.get(key);
 }
 
 function writeCache(entry: CacheEntry) {
   memoryCache.set(entry.key, entry);
+  if (completePayload(entry)) persistentKeys.add(entry.key);
+  else persistentKeys.delete(entry.key);
   pruneCache(Date.now());
   try {
-    globalThis.localStorage?.setItem(CACHE_VERSION, JSON.stringify([...memoryCache.values()]));
-  } catch { /* Live forecasts still work when storage is unavailable. */ }
+    const entries = [...memoryCache.values()].filter((value) => persistentKeys.has(value.key));
+    if (entries.length) globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(entries));
+    else globalThis.localStorage?.removeItem(STORAGE_KEY);
+  } catch { /* Live forecasts still work when storage is denied or full. */ }
 }
 
 export function clearWeatherCache() {
   cacheGeneration++;
   memoryCache.clear();
+  persistentKeys.clear();
+  storageLoaded = true;
   // Existing consumers may finish, but a manual refresh starts its own request
   // and an older request cannot repopulate the newly cleared cache.
   pendingRequests.clear();
-  try { globalThis.localStorage?.removeItem(CACHE_VERSION); } catch { /* Optional storage. */ }
+  try { globalThis.localStorage?.removeItem(STORAGE_KEY); } catch { /* Optional storage. */ }
 }
 
 async function fetchProviderPayload(
@@ -196,7 +246,7 @@ async function fetchProviderPayload(
       throw new Error('The forecast date changed in Japan. Refresh the trip dates and try again.');
     }
     providerFields(response);
-    const entry = { key, storedAt, response };
+    const entry = { key, queryDay, storedAt, response };
     if (generation === cacheGeneration) writeCache(entry);
     return entry;
   } catch (error) {
