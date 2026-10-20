@@ -1,5 +1,5 @@
 import type { DataMode, Elevation, ForecastModel, Resort, WeatherSnapshot } from '../types';
-import { getDemoSnapshot } from '../data/demo';
+import { getDemoSnapshot, type DemoScenarioId } from '../data/demo';
 import { WEATHER_MODELS } from '../data/providers';
 import { addDays, japanDate, overnightHourEnds } from './dates';
 import { assembleSnapshot } from './snapshot';
@@ -339,7 +339,8 @@ export async function fetchLiveSnapshot(
 
 export async function getWeatherSnapshot(
   resort: Resort, date: string, elevation: Elevation, mode: DataMode, signal?: AbortSignal,
+  demoScenario: DemoScenarioId = 'resort-default',
 ): Promise<WeatherSnapshot> {
   checkAbort(signal);
-  return mode === 'demo' ? getDemoSnapshot(resort, date, elevation) : fetchLiveSnapshot(resort, date, elevation, signal);
+  return mode === 'demo' ? getDemoSnapshot(resort, date, elevation, new Date(), demoScenario) : fetchLiveSnapshot(resort, date, elevation, signal);
 }

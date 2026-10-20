@@ -5,11 +5,13 @@ import { pathToFileURL } from 'node:url';
 import {
   OFFICIAL_REPORT_SOURCES, emptyOfficialReport,
   parseMadaraoSnowReport, parseRusutsuSnowReport, parseRusutsuLiftReport,
+  parseHappoSnowReport, parseNozawaLiftReport,
 } from './lib/official-report-parsers.mjs';
 
 const ALLOWED_URLS = new Set([
   OFFICIAL_REPORT_SOURCES.rusutsu.sourceUrl, OFFICIAL_REPORT_SOURCES.rusutsu.liftDataUrl,
   OFFICIAL_REPORT_SOURCES.madarao.sourceUrl,
+  OFFICIAL_REPORT_SOURCES.hakuba.sourceUrl, OFFICIAL_REPORT_SOURCES.nozawa.sourceUrl,
 ]);
 const MAX_BYTES = 1_000_000;
 
@@ -52,19 +54,28 @@ async function download(url, fetchImpl) {
 
 export async function collectOfficialReports({ fetchImpl = fetch, now = new Date(), onError = () => {} } = {}) {
   if (!Number.isFinite(now.getTime())) throw new Error('Collection time must be a valid date');
-  const reports = { rusutsu: emptyOfficialReport('rusutsu'), madarao: emptyOfficialReport('madarao') };
+  const reports = Object.fromEntries(Object.keys(OFFICIAL_REPORT_SOURCES).map((id) => [id, emptyOfficialReport(id)]));
   const collect = async (label, url, parser, apply) => {
     try { apply(parser(await download(url, fetchImpl))); }
     catch (error) { onError(`${label}: ${error instanceof Error ? error.message : 'Report unavailable'}`); }
   };
-  await Promise.all([
-    collect('Rusutsu snow', OFFICIAL_REPORT_SOURCES.rusutsu.sourceUrl, parseRusutsuSnowReport,
+  const jobs = [
+    () => collect('Rusutsu snow', OFFICIAL_REPORT_SOURCES.rusutsu.sourceUrl, parseRusutsuSnowReport,
       (report) => { reports.rusutsu = { ...report, operations: reports.rusutsu.operations }; }),
-    collect('Rusutsu lifts', OFFICIAL_REPORT_SOURCES.rusutsu.liftDataUrl, (body) => parseRusutsuLiftReport(JSON.parse(body)),
+    () => collect('Rusutsu lifts', OFFICIAL_REPORT_SOURCES.rusutsu.liftDataUrl, (body) => parseRusutsuLiftReport(JSON.parse(body)),
       (operations) => { reports.rusutsu.operations = operations; }),
-    collect('Madarao snow', OFFICIAL_REPORT_SOURCES.madarao.sourceUrl, parseMadaraoSnowReport,
+    () => collect('Madarao snow', OFFICIAL_REPORT_SOURCES.madarao.sourceUrl, parseMadaraoSnowReport,
       (report) => { reports.madarao = report; }),
-  ]);
+    () => collect('Happo snow', OFFICIAL_REPORT_SOURCES.hakuba.sourceUrl, parseHappoSnowReport,
+      (report) => { reports.hakuba = report; }),
+    () => collect('Nozawa lifts', OFFICIAL_REPORT_SOURCES.nozawa.sourceUrl, parseNozawaLiftReport,
+      (operations) => { reports.nozawa.operations = operations; }),
+  ];
+  // Keep source traffic bounded as coverage expands; each endpoint still fails independently.
+  let next = 0;
+  await Promise.all(Array.from({ length: Math.min(3, jobs.length) }, async () => {
+    while (next < jobs.length) await jobs[next++]();
+  }));
   return { version: 1, generatedAt: now.toISOString(), reports };
 }
 
@@ -85,7 +96,7 @@ async function main() {
   await writeFile(output, `${JSON.stringify(payload)}\n`);
   const reportCount = Object.values(payload.reports).filter((report) => report.reportedAt !== null).length;
   const operationCount = Object.values(payload.reports).filter((report) => report.operations !== null).length;
-  process.stderr.write(`Collected ${reportCount}/2 dated snow reports and ${operationCount}/1 dated lift reports.\n`);
+  process.stderr.write(`Collected ${reportCount}/3 dated snow/depth reports and ${operationCount}/2 dated lift reports.\n`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

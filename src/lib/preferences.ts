@@ -1,4 +1,5 @@
 import { RESORTS } from '../data/resorts';
+import { normalizeDemoScenario, type DemoScenarioId } from '../data/demo';
 import type { DataMode, Elevation } from '../types';
 
 export interface Preferences {
@@ -8,6 +9,7 @@ export interface Preferences {
   elevation: Elevation;
   threshold: number;
   mode: DataMode;
+  demoScenario: DemoScenarioId;
 }
 
 /** Keep the original storage key and identifiers so favourites survive upgrades. */
@@ -24,5 +26,6 @@ export function normalizePreferences(input: unknown): Preferences {
     // Old versions persisted their automatic demo default. Upgrade it once;
     // demo selected explicitly after the upgrade remains a saved preference.
     mode: value.version === 2 && value.mode === 'demo' ? 'demo' : 'live',
+    demoScenario: normalizeDemoScenario(value.demoScenario),
   };
 }

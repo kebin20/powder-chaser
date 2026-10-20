@@ -100,6 +100,17 @@ export interface PowderDecision {
   status: Verdict;
   title: string;
   reason: string;
+  /** Weather potential is separate from whether lifts and terrain are accessible. */
+  outlook: {
+    status: 'promising' | 'borderline' | 'low' | 'unknown';
+    label: string;
+    reason: string;
+  };
+  access: {
+    status: 'open' | 'hold' | 'closed' | 'unconfirmed';
+    label: string;
+    reason: string;
+  };
   confidence: 'high' | 'medium' | 'low' | 'unknown';
   confidenceLabel: string;
   quality: 'dry' | 'mixed' | 'rain' | 'unknown';
