@@ -7,6 +7,24 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.8 — 2026-10-21</strong> · Test winter decisions</summary>
+
+### Added
+
+- Eleven Winter Demo choices in Preferences: resort examples, cold powder, light snowfall, unconfirmed access, conflicting forecasts, rain below/snow above, wind holds, closed terrain, outdated readings, missing data and connection failure. Explicit test scenarios work across the catalogue, remain clearly fictional on every screen and make no live forecast/report requests.
+- Separate powder potential (Promising / Borderline / Low / Unknown) and trip-date access signals on Forecast, Favorites and Plan a trip. The overall Go / Maybe / Skip retains its access requirement; weather concerns remain visible while access is unconfirmed.
+- Verified official Happo-one Kurobishi depth and separately dated Nozawa lift reports. Snowfall without a compatible 24-hour window remains unknown, and old observations never receive a new publication timestamp.
+
+### Reliability and verification
+
+- Saved scenarios preserve existing favourites and live-first preferences. Returning to live removes fictional values; simulated failures never fall back to real or fabricated weather.
+- Stale, duplicated, incomplete and mismatched forecast windows cannot produce a promising outlook. Original report source dates and independent lift timestamps are retained.
+- 209 behavioural tests pass. Browser checks cover all eleven scenarios, both heights, saved preferences, Forecast/Favorites/Plan transitions, and a clean return to live; 45 responsive accessibility screens passed across 320–1,440 px.
+- See [winter testing and coverage limits](docs/winter-testing.md). Scenario testing checks app behaviour; forecast accuracy still needs compatible observations.
+
+</details>
+
+<details>
 <summary><strong>0.1.7 — 2026-10-20</strong> · Lighter startup</summary>
 
 ### Improved

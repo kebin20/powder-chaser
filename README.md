@@ -15,8 +15,9 @@ The deployment environment and forecast mode are separate: both previews start w
 
 - Calm Alpine design with two **static 2D hero cards**: snowfall conditions and a snow-depth illustration. Swipe or use the carousel buttons; there is no animation or automatic rotation.
 - Japan resort selection, two upcoming ski mornings in Japan time, and base/upper-mountain forecasts.
-- Overnight snowfall range, followed by a short trip recommendation.
+- Overnight snowfall range, followed by a short trip recommendation with separate powder potential and trip-date access signals.
 - Expandable model comparison, official resort links, and data limitations.
+- Eleven selectable Winter Demo scenarios for testing powder, rain, wind, closures, missing/outdated data and connection failures before winter.
 - A personal minimum-snowfall threshold and favourite resorts saved in your browser.
 - A searchable Japan catalogue of 520 downhill areas across 35 prefectures, with English/Japanese names, aliases, and prefecture filters.
 - An on-demand snowfall-history view: published Grand Hirafu records where verified, and clearly labelled ERA5 estimates elsewhere, with five/ten winter charts and source details.
@@ -32,13 +33,13 @@ The eight curated starter resorts are Akakura Kanko, Kagura, Hakuba Happo-one, N
 
 **Live forecasts are the default.** The upgrade switches the old automatically saved demo setting to live once, preserving favourites, resort, elevation and threshold. Choosing Winter Demo explicitly afterwards remains saved.
 
-**Sample mode**, available in Preferences, provides fictional winter conditions so the UI can be explored at any time of year. Forecasts, snowfall reports, snow depth, and lift operations in this mode are illustrative. Displaying them against an upcoming date does not make them a real forecast.
+**Winter Demo**, available in Preferences, provides eleven selectable fictional scenarios so the UI and decision rules can be explored at any time of year. Original resort examples cover the eight starter resorts; explicit test scenarios also work at other catalogue resorts and are not specific predictions for those locations. Forecasts, snowfall reports, snow depth and lift operations are illustrative. A visible banner on every view names the scenario and offers **Return to live**. Scenario, threshold, elevation and favourite choices stay in this browser. Displaying fictional conditions against an upcoming date does not make them a real forecast. See [winter testing](docs/winter-testing.md) for the scenarios and expected results.
 
 **Live mode** requests three explicitly selected models through [Open-Meteo](https://open-meteo.com/en/docs): JMA MSM (`jma_msm`), ECMWF IFS (`ecmwf_ifs025`), and GFS (`gfs_global`). These are model forecasts provided through one aggregator; they are not Yahoo Weather, tenki.jp, or Weathernews feeds. No API key is needed for this initial non-commercial demo. Review [Open-Meteo's terms](https://open-meteo.com/en/terms) before commercial use or larger-scale deployment.
 
 All three models use the same resort coordinate, selected elevation, and **18:00 the previous evening to 08:00 on the selected ski morning, JST**. Hourly snowfall is summed over that window. The middle forecast is the typical estimate; the smallest and largest values show model disagreement, not a probability interval. Missing or incomplete windows remain unknown instead of becoming zero.
 
-The **morning resort check** separately imports dated official reports for Rusutsu and snow reports for Madarao. Other resorts retain official links and unknown readings. Collection runs during Pages deployments, scheduled hourly from November through May and daily outside winter; GitHub scheduling and source availability can delay updates. Source timestamps, rather than collection time, determine freshness. Old readings are labelled **Past report**; missing or undated readings remain unavailable. A current-day lift report never verifies tomorrow's access. These observations do not change the forecast recommendation or snow-depth hero. A failed live request shows an error rather than silently substituting sample snow. See [report sources and collection](docs/resort-reports.md).
+The **morning resort check** separately imports dated snow/lift reports for Rusutsu, snow reports for Madarao, Kurobishi station depth for Hakuba Happo-one, and independently dated lift updates for Nozawa Onsen. Other readings remain unknown with official links. Fresh-snow values without a verified 24-hour window are not converted into that field. Collection runs during Pages deployments, scheduled hourly from November through May and daily outside winter; GitHub scheduling and source availability can delay updates. Source timestamps, rather than collection time, determine freshness. Old readings are labelled **Past report**; missing or undated readings remain unavailable. A current-day lift report never verifies tomorrow's access. These observations do not change the forecast recommendation or snow-depth hero. A failed live request shows an error rather than silently substituting sample snow. See [report sources and collection](docs/resort-reports.md).
 
 Model grids cannot resolve every slope or local snowfall effect. JMA snowfall here is Open-Meteo's derived estimate, and selecting a mountain elevation does not turn the forecast into a measured upper-slope report. Retrieval timestamps describe when the app fetched data, not the model's issue time. See the [JMA](https://open-meteo.com/en/docs/jma-api), [ECMWF](https://open-meteo.com/en/docs/ecmwf-api), and [GFS](https://open-meteo.com/en/docs/gfs-api) source documentation.
 
@@ -49,6 +50,8 @@ The recommendation is a transparent starting heuristic. It considers model agree
 - **Go:** all three forecasts meet the threshold, agree closely enough, conditions support snow, and relevant terrain is confirmed open for the selected date.
 - **Maybe:** forecasts disagree, data is incomplete or old, rain/wind could matter, or lift and terrain access is unverified.
 - **Skip:** all three forecasts fall below the threshold, or relevant terrain is confirmed closed for the selected date.
+
+The **powder outlook** separately shows **Promising / Borderline / Low / Unknown**, based on fresh, complete model data, snowfall, temperature, rain and wind. The **trip-date access** signal shows whether relevant terrain is confirmed open, held, closed or awaiting confirmation for the selected date. Weather concerns remain visible even when access is unconfirmed. These signals appear on Forecast, Favorites and Plan a trip; their status is separate from the overall Go / Maybe / Skip.
 
 The imported operations are current-day reports, while trip forecasts cover upcoming mornings. A promising live forecast therefore remains **Maybe** until access for that future date can be verified. Confidence describes forecast agreement and completeness; it is not a calibrated chance of powder, an assessment of avalanche danger, or a guarantee of untracked snow. The exact rules live in [`src/lib/decision.ts`](src/lib/decision.ts).
 
@@ -141,7 +144,7 @@ src/
   App.tsx                 Resort dashboard and interactions
   main.tsx                App entry and service worker registration
   data/                   Licensed Japan catalogue, curated resorts, sample fixtures
-  components/             Lazy historical snowfall dialog and charts
+  components/             Forecast signals, comparisons, reports and lazy history
   assets/                 Static SVG hero artwork and legacy WebP sources
   lib/                    Japan dates, snapshots, recommendation and forecast logic
   types.ts                Shared data contracts
@@ -178,9 +181,20 @@ The existing eight curated IDs are retained, so saved favourites survive the exp
 
 ## Next steps
 
-Expand verified official report coverage and licensed Japanese forecast feeds, improve catalogue coverage and historical records, calibrate forecast accuracy against observations, and add quiet personalised powder alerts. The initial app focuses on the visual workflow and a working model comparison.
+Expand verified official report coverage and licensed Japanese forecast feeds, improve catalogue coverage and historical records, and collect comparable observations to evaluate forecast accuracy. Historical forecast replay, forecast-change indicators and quiet personalised powder alerts are future work. Winter Demo validates behaviour; it does not establish powder accuracy.
 
 ## Changelog
+
+<details>
+<summary>0.1.8 · 21 October 2026 · Test winter decisions</summary>
+
+- Eleven selectable fictional winter scenarios, with a clear return to live forecasts.
+- Separate powder outlook and trip-date access on Forecast, Favorites and Plan a trip.
+- Verified Happo-one depth and Nozawa lift sources, preserving their original dates and limitations.
+
+[Open the full changelog](CHANGELOG.md) · [Winter testing guide](docs/winter-testing.md).
+
+</details>
 
 <details>
 <summary>0.1.7 · 20 October 2026 · Lighter startup</summary>

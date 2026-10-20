@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Check, ChevronLeft, ChevronRight, MapPin, RefreshCw, Star } from 'lucide-react';
-import { hasDemoScenario } from '../data/demo';
+import { DEMO_SCENARIOS, hasDemoScenario, type DemoScenarioId } from '../data/demo';
+import DecisionSignals from './DecisionSignals';
 import { COMPARISON_PAGE_SIZE, runComparisonBatch } from '../lib/comparison';
 import { evaluatePowder } from '../lib/decision';
 import { getWeatherSnapshot, WEATHER_CACHE_TTL_MS } from '../lib/weather';
@@ -13,6 +14,7 @@ interface Props {
   date: TripDate;
   elevation: Elevation;
   mode: DataMode;
+  demoScenario: DemoScenarioId;
   threshold: number;
   onSelect: (id: string) => void;
   onFavorite: (id: string) => void;
@@ -29,13 +31,13 @@ function range(snapshot: WeatherSnapshot) {
 }
 
 /** Only mounted on the Favorites screen; the current six resorts share the provider cache. */
-export default function FavoritesComparison({ resorts, date, elevation, mode, threshold, onSelect, onFavorite, decorateSnapshot }: Props) {
+export default function FavoritesComparison({ resorts, date, elevation, mode, demoScenario, threshold, onSelect, onFavorite, decorateSnapshot }: Props) {
   const savedIds = resorts.map(resort => resort.id).join(':');
   const [paging, setPaging] = useState({ key: '', page: 0 });
   const page = paging.key === savedIds ? Math.min(paging.page, Math.max(0, Math.ceil(resorts.length / COMPARISON_PAGE_SIZE) - 1)) : 0;
   // Catalogue metadata is immutable; keep this page stable when only callbacks change.
   const visible = useMemo(() => resorts.slice(page * COMPARISON_PAGE_SIZE, (page + 1) * COMPARISON_PAGE_SIZE), [savedIds, page]);
-  const key = `${date.date}:${elevation}:${mode}:${visible.map(resort => resort.id).join(':')}`;
+  const key = `${date.date}:${elevation}:${mode}:${mode === 'demo' ? demoScenario : ''}:${visible.map(resort => resort.id).join(':')}`;
   const [attempt, setAttempt] = useState({ id: 0, errorsOnly: false });
   const [state, setState] = useState<{ key: string; entries: Entries }>({ key: '', entries: {} });
   const latest = useRef(state);
@@ -47,14 +49,14 @@ export default function FavoritesComparison({ resorts, date, elevation, mode, th
     generationAtAttemptStart.current = reconnectGeneration.current;
     const previous = latest.current.key === key ? latest.current.entries : {};
     const entries: Entries = Object.fromEntries(visible.map(resort => [resort.id,
-      mode === 'demo' && !hasDemoScenario(resort) ? { status: 'unavailable' }
+      mode === 'demo' && !hasDemoScenario(resort, demoScenario) ? { status: 'unavailable' }
         : attempt.errorsOnly && previous[resort.id]?.status === 'ready' ? previous[resort.id] : { status: 'loading' },
     ]));
     latest.current = { key, entries };
     setState(latest.current);
     const pending = visible.filter(resort => entries[resort.id].status === 'loading');
     void runComparisonBatch(pending,
-      (resort, signal) => getWeatherSnapshot(resort, date.date, elevation, mode, signal),
+      (resort, signal) => getWeatherSnapshot(resort, date.date, elevation, mode, signal, demoScenario),
       (resort, result) => {
         if (controller.signal.aborted) return;
         const entry: Entry = result.data ? { status: 'ready', snapshot: result.data }
@@ -63,7 +65,7 @@ export default function FavoritesComparison({ resorts, date, elevation, mode, th
         setState(latest.current);
       }, controller.signal);
     return () => controller.abort();
-  }, [key, attempt, visible, date.date, elevation, mode]);
+  }, [key, attempt, visible, date.date, elevation, mode, demoScenario]);
 
   useEffect(() => {
     if (mode !== 'live') return;
@@ -103,7 +105,7 @@ export default function FavoritesComparison({ resorts, date, elevation, mode, th
   const setPage = (next: number) => { setPaging({ key: savedIds, page: next }); };
 
   return <div className="favorites-comparison">
-    <p className="comparison-context">{mode === 'demo' ? 'Fictional winter examples' : 'Live model forecasts'} · {elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {threshold} cm minimum</p>
+    <p className="comparison-context">{mode === 'demo' ? `Fictional test · ${DEMO_SCENARIOS.find(scenario => scenario.id === demoScenario)?.label}` : 'Live model forecasts'} · {elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {threshold} cm minimum</p>
     <p className="sr-only" role="status">{loading ? `Checking forecasts for ${visible.length} saved resorts.` : `Forecast comparison ready for ${date.shortLabel}.`}</p>
     <div className="comparison-grid" aria-label={`Saved resort forecasts for ${date.shortLabel}`}>
       {visible.map(resort => {
@@ -119,8 +121,8 @@ export default function FavoritesComparison({ resorts, date, elevation, mode, th
           {snapshot && decision ? <>
             <div className="comparison-summary"><p className="comparison-snow">{range(snapshot)}</p><span className={`comparison-verdict ${decision.status}`}>{decision.status === 'go' && <Check size={12} aria-hidden="true" />}{decision.status.toUpperCase()}</span></div>
             <p className="comparison-window">Overnight · 18:00–08:00 JST</p>
-            <p className="comparison-concern">{decision.reason}</p>
-          </> : entry.status === 'unavailable' ? <div className="comparison-message"><p>No winter demo for this resort.</p><small>Choose Live model forecasts in Preferences to compare it.</small></div>
+            <DecisionSignals decision={decision} compact />
+          </> : entry.status === 'unavailable' ? <div className="comparison-message"><p>No resort example for this mountain.</p><small>Choose a Winter Demo test scenario or live forecasts in Preferences.</small></div>
             : entry.status === 'error' ? <div className="comparison-message comparison-error"><p>Forecast unavailable.</p><small>{entry.message}</small><button className="comparison-retry text-button" onClick={retry} aria-label={`Retry forecasts for ${resort.name}`}><RefreshCw size={12} aria-hidden="true" />Retry failed forecasts</button></div>
               : <div className="comparison-message"><p>Checking three forecasts…</p><small>For {date.shortLabel}, {height === null ? 'the resort area' : `${elevation} mountain`}.</small></div>}
         </article>;
