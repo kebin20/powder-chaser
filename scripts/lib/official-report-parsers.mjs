@@ -12,6 +12,16 @@ export const OFFICIAL_REPORT_SOURCES = Object.freeze({
     sourceUrl: 'https://www.madarao.jp/ski',
     webcamUrl: 'https://www.madarao.jp/ski/live-camera',
   }),
+  hakuba: Object.freeze({
+    sourceName: 'Hakuba Happo-one Snow Resort',
+    sourceUrl: 'https://www.happo-one.jp/en/winter/',
+    webcamUrl: 'https://www.happo-one.jp/en/gelande/livecamera/',
+  }),
+  nozawa: Object.freeze({
+    sourceName: 'Nozawa Onsen Snow Resort',
+    sourceUrl: 'https://en.nozawaski.com/the-mountain/moutain-info/slopes-lifts/',
+    webcamUrl: 'https://nozawaski.com/winter/course/livecam_map/',
+  }),
 });
 
 function text(value) {
@@ -24,15 +34,7 @@ function divByClass(html, className) {
   const elements = /<div\b[^>]*class=(["'])([^"']*)\1[^>]*>/gi;
   for (const element of html.matchAll(elements)) {
     if (!element[2].split(/\s+/).includes(className)) continue;
-    const start = element.index + element[0].length;
-    const tags = /<\/?div\b[^>]*>/gi;
-    tags.lastIndex = start;
-    let depth = 1;
-    for (let tag = tags.exec(html); tag; tag = tags.exec(html)) {
-      depth += /^<\//.test(tag[0]) ? -1 : 1;
-      if (depth === 0) return html.slice(start, tag.index);
-    }
-    return null;
+    return divContentsAt(html, element.index + element[0].length);
   }
   return null;
 }
@@ -40,6 +42,17 @@ function divByClass(html, className) {
 function definition(html, label) {
   const definitions = html.matchAll(/<dt\b[^>]*>([\s\S]*?)<\/dt>\s*<dd\b[^>]*>([\s\S]*?)<\/dd>/gi);
   for (const match of definitions) if (text(match[1]) === label) return text(match[2]);
+  return null;
+}
+
+function divContentsAt(html, start) {
+  const tags = /<\/?div\b[^>]*>/gi;
+  tags.lastIndex = start;
+  let depth = 1;
+  for (let tag = tags.exec(html); tag; tag = tags.exec(html)) {
+    depth += /^<\//.test(tag[0]) ? -1 : 1;
+    if (depth === 0) return html.slice(start, tag.index);
+  }
   return null;
 }
 
@@ -107,6 +120,65 @@ export function parseMadaraoSnowReport(html) {
     // The site labels the lift table as a schedule (運行予定), not a current operating report.
     operations: null,
   };
+}
+
+export function parseHappoSnowReport(html) {
+  const report = emptyOfficialReport('hakuba');
+  // Pin a named station, never the closest/freshest-looking number elsewhere on the page.
+  const container = divByClass(html.replace(/<!--[\s\S]*?-->/g, ''), 'condition-container');
+  const board = container && divByClass(container, 'condition-data');
+  if (!board) throw new Error('Happo snow board is missing');
+  const heading = /<h2\b[^>]*>([\s\S]*?)<\/h2>/i.exec(board);
+  if (!heading || !/^KUROBISHI\s*（1,680m）$/.test(text(heading[1]))) throw new Error('Happo weather station is unrecognized');
+  const date = /^Update at (\d{4})\.(\d{2})\.(\d{2}) (\d{1,2}):(\d{2})$/.exec(text(divByClass(board, 'update') ?? ''));
+  const timestamp = date && jstTimestamp(...date.slice(1));
+  if (!timestamp) throw new Error('Happo report timestamp is missing or invalid');
+  let depthCm = null;
+  for (const match of board.matchAll(/<li\b[^>]*>([\s\S]*?)<\/li>/gi)) {
+    const label = /<span\b[^>]*class=["']label["'][^>]*>([\s\S]*?)<\/span>/i.exec(match[1]);
+    if (label && text(label[1]) === 'SnowDepth') depthCm = snowCm(text(match[1].slice(label.index + label[0].length)));
+  }
+  return {
+    ...report, ...timestamp, station: 'Kurobishi · 1,680 m', depthCm,
+    // "SnowFall" has no explicit measurement window; it is not a 24-hour observation.
+    snowfall24hCm: null,
+  };
+}
+
+export function parseNozawaLiftReport(html) {
+  // Source comments contain retired lifts. Only the visible, independently dated lift board counts.
+  const visible = html.replace(/<!--[\s\S]*?-->/g, '');
+  const opening = /<div\b[^>]*\bid=["']now_lift["'][^>]*>/i.exec(visible);
+  if (!opening) throw new Error('Nozawa lift board is missing');
+  const board = divContentsAt(visible, opening.index + opening[0].length);
+  if (!board) throw new Error('Nozawa lift board is missing');
+  const heading = /<h5\b[^>]*>([\s\S]*?)<\/h5>/i.exec(board);
+  const date = /^Latest update \(date\/time\)：(\d{1,2})\/([A-Za-z]{3})\/(\d{4}) (\d{1,2}):(\d{2})$/.exec(heading ? text(heading[1]) : '');
+  const month = date && ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].indexOf(date[2]) + 1;
+  const timestamp = date && jstTimestamp(date[3], month, date[1], date[4], date[5]);
+  if (!timestamp) throw new Error('Nozawa lift timestamp is missing or invalid');
+  const tables = [...board.matchAll(/<table\b[^>]*class=["']tb_lift["'][^>]*>([\s\S]*?)<\/table>/gi)];
+  if (tables.length === 0) throw new Error('Nozawa lift list is missing');
+  const states = [];
+  const ids = new Set();
+  for (const table of tables) {
+    for (const row of table[1].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+      if (!/<td\b/i.test(row[1])) continue;
+      const cells = [...row[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)].map((cell) => text(cell[1]));
+      if (cells.length !== 4 || !/^\d{1,2}$/.test(cells[0]) || !cells[1] || ids.has(cells[0])) throw new Error('Nozawa lift row is unrecognized');
+      ids.add(cells[0]);
+      // The official Japanese lift legend names ◯ operating, △ waiting/inspection, × closed.
+      states.push(cells[3] === '◯' ? 'open' : cells[3] === '△' ? 'hold' : cells[3] === '×' ? 'closed' : 'unknown');
+    }
+  }
+  if (states.length === 0 || states.length > 100) throw new Error('Nozawa lift list is missing or unbounded');
+  const opened = states.filter((status) => status === 'open').length;
+  const status = states.includes('unknown') ? 'unknown' : opened === states.length ? 'open' : opened > 0 ? 'partial' : states.includes('hold') ? 'hold' : 'closed';
+  const details = status === 'unknown' ? 'The resort reports lift states that this app cannot yet interpret.'
+    : opened > 0 ? `${opened} of ${states.length} lifts reported operating. Terrain access still needs checking.`
+      : status === 'hold' ? 'No lifts reported operating; one or more are awaiting conditions or inspection.'
+        : `All ${states.length} lifts reported closed.`;
+  return { ...timestamp, status, details, sourceUrl: OFFICIAL_REPORT_SOURCES.nozawa.sourceUrl };
 }
 
 export function parseRusutsuLiftReport(payload) {

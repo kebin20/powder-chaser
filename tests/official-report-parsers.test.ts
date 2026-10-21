@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { collectOfficialReports } from '../scripts/collect-resort-reports.mjs';
 import {
   OFFICIAL_REPORT_SOURCES, parseMadaraoSnowReport, parseRusutsuLiftReport, parseRusutsuSnowReport,
+  parseHappoSnowReport, parseNozawaLiftReport,
 } from '../scripts/lib/official-report-parsers.mjs';
 import { parseResortReports } from '../src/lib/resort-reports';
 
@@ -10,12 +11,16 @@ const fixture = (name: string) => readFileSync(new URL(`./fixtures/official-repo
 const rusutsu = fixture('rusutsu-snow.html');
 const madarao = fixture('madarao-snow.html');
 const lifts = JSON.parse(fixture('rusutsu-lifts.json'));
-const NOW = new Date('2026-10-18T03:00:00Z');
+const happo = fixture('happo-snow.html');
+const nozawa = fixture('nozawa-lifts.html');
+const NOW = new Date('2026-10-21T03:00:00Z');
 
 function reportResponse(url: string) {
   if (url === OFFICIAL_REPORT_SOURCES.rusutsu.sourceUrl) return new Response(rusutsu);
   if (url === OFFICIAL_REPORT_SOURCES.rusutsu.liftDataUrl) return Response.json(lifts);
   if (url === OFFICIAL_REPORT_SOURCES.madarao.sourceUrl) return new Response(madarao);
+  if (url === OFFICIAL_REPORT_SOURCES.hakuba.sourceUrl) return new Response(happo);
+  if (url === OFFICIAL_REPORT_SOURCES.nozawa.sourceUrl) return new Response(nozawa);
   throw new Error('Unexpected source');
 }
 function fetcher(fn: (url: string) => Response | Promise<Response>) {
@@ -65,6 +70,28 @@ describe('official snow report adapters', () => {
     expect(() => parseMadaraoSnowReport(madarao.replace('9:53 am', '13:53 pm'))).toThrow(/timestamp/);
     expect(() => parseMadaraoSnowReport(madarao.replace('2026-08-17', '2026-02-30'))).toThrow(/timestamp/);
   });
+  it('keeps Happo Kurobishi depth at its actual station/time and leaves unspecified snowfall unknown', () => {
+    expect(parseHappoSnowReport(happo)).toMatchObject({
+      sourceName: 'Hakuba Happo-one Snow Resort', station: 'Kurobishi · 1,680 m',
+      reportedAt: '2026-10-20T22:35:00.000Z', reportDate: '2026-10-21',
+      depthCm: 0, snowfall24hCm: null, operations: null,
+    });
+    const winter = happo.replace('SnowDepth</span><strong>0', 'SnowDepth</span><strong>198.5')
+      .replace('SnowFall</span><strong>0', 'SnowFall</span><strong>35');
+    expect(parseHappoSnowReport(winter)).toMatchObject({ depthCm: 198.5, snowfall24hCm: null });
+    expect(parseHappoSnowReport(winter.replace('SnowDepth', 'SnowFall')).depthCm).toBeNull();
+  });
+  it('rejects missing/yearless/invalid Happo dates and station changes, without borrowing other boards', () => {
+    expect(() => parseHappoSnowReport(happo.replace('2026.10.21', '10.21'))).toThrow(/timestamp/);
+    expect(() => parseHappoSnowReport(happo.replace('2026.10.21', '2026.02.30'))).toThrow(/timestamp/);
+    expect(() => parseHappoSnowReport(happo.replace('07:35', '24:35'))).toThrow(/timestamp/);
+    expect(() => parseHappoSnowReport(happo.replace('1,680m', '1,400m'))).toThrow(/station/);
+    expect(() => parseHappoSnowReport(happo.replace('KUROBISHI', 'USAGIDAIRA'))).toThrow(/station/);
+    expect(() => parseHappoSnowReport('<p>Update at 2026.10.21 07:35</p>')).toThrow(/board/);
+  });
+  it.each(['', '-', '--', 'N/A', '-1', '25mm', 'NaN', '10001', '5 to 8'])('keeps malformed Happo depth %j unavailable', (invalid) => {
+    expect(parseHappoSnowReport(happo.replace('SnowDepth</span><strong>0</strong>cm', `SnowDepth</span><strong>${invalid}</strong>`)).depthCm).toBeNull();
+  });
 });
 
 describe('independently dated official lift states', () => {
@@ -89,6 +116,32 @@ describe('independently dated official lift states', () => {
     expect(() => parseRusutsuLiftReport({ ...lifts, lift: [] })).toThrow(/list/);
     expect(() => parseRusutsuLiftReport({ ...lifts, lift: Array(101).fill({ stat: '運転中' }) })).toThrow(/list/);
   });
+  it('reads only the independently dated Nozawa lift board and preserves its old update', () => {
+    const unrelated = '<h5>Latest update (date/time)：21/Oct/2026 08:00</h5><table><tr><td>◯</td></tr></table>';
+    expect(parseNozawaLiftReport(unrelated + nozawa)).toEqual({
+      status: 'closed', reportedAt: '2026-05-06T06:54:00.000Z', reportDate: '2026-05-06',
+      details: 'All 17 lifts reported closed.', sourceUrl: OFFICIAL_REPORT_SOURCES.nozawa.sourceUrl,
+    });
+  });
+  it('uses explicit Nozawa status symbols without treating opening hours as operating', () => {
+    expect(parseNozawaLiftReport(nozawa.replaceAll('シーズン終了', '8:30–16:00')).status).toBe('closed');
+    expect(parseNozawaLiftReport(nozawa.replaceAll('×', '◯')).status).toBe('open');
+    expect(parseNozawaLiftReport(nozawa.replace('×', '◯')).status).toBe('partial');
+    expect(parseNozawaLiftReport(nozawa.replace('×', '△')).status).toBe('hold');
+    expect(parseNozawaLiftReport(nozawa.replace('×', 'new code')).status).toBe('unknown');
+    expect(parseNozawaLiftReport(nozawa.replace('×', '')).status).toBe('unknown');
+    const retired = '<!-- <table class="tb_lift"><tr><td>21</td><td>Retired</td><td>8:00</td><td>◯</td></tr></table> -->';
+    expect(parseNozawaLiftReport(nozawa.replace('</h5>', `</h5>${retired}`)).details).toBe('All 17 lifts reported closed.');
+  });
+  it('rejects Nozawa missing years, impossible dates, malformed or duplicate lift rows', () => {
+    expect(() => parseNozawaLiftReport(nozawa.replace('/2026', ''))).toThrow(/timestamp/);
+    expect(() => parseNozawaLiftReport(nozawa.replace('06/May', '31/Feb'))).toThrow(/timestamp/);
+    expect(() => parseNozawaLiftReport(nozawa.replace('15:54', '25:54'))).toThrow(/timestamp/);
+    expect(() => parseNozawaLiftReport(nozawa.replace('now_lift', 'now_course'))).toThrow(/board/);
+    expect(() => parseNozawaLiftReport(nozawa.replace('<td>2</td>', '<td>1</td>'))).toThrow(/row/);
+    expect(() => parseNozawaLiftReport(nozawa.replace('<td>Nagasaka Gondola</td>', ''))).toThrow(/row/);
+    expect(() => parseNozawaLiftReport(nozawa.replace(/<table[\s\S]*<\/table>/, ''))).toThrow(/list/);
+  });
 });
 
 describe('bounded scheduled report collection', () => {
@@ -99,8 +152,12 @@ describe('bounded scheduled report collection', () => {
     expect(payload.reports.rusutsu.reportDate).toBe('2026-10-17');
     expect(payload.reports.rusutsu.operations?.reportDate).toBe('2026-04-02');
     expect(payload.reports.madarao.reportDate).toBe('2026-08-17');
+    expect(payload.reports.hakuba.reportDate).toBe('2026-10-21');
+    expect(payload.reports.hakuba.snowfall24hCm).toBeNull();
+    expect(payload.reports.nozawa.reportDate).toBeNull();
+    expect(payload.reports.nozawa.operations?.reportDate).toBe('2026-05-06');
     expect(parseResortReports(payload)).toEqual(payload);
-    expect(request).toHaveBeenCalledTimes(3);
+    expect(request).toHaveBeenCalledTimes(5);
     for (const [, options] of vi.mocked(request).mock.calls) expect(options).toMatchObject({ redirect: 'error', signal: expect.any(AbortSignal) });
   });
   it('preserves successful lift collection when the snow report request fails', async () => {
@@ -131,6 +188,8 @@ describe('bounded scheduled report collection', () => {
     expect(calls.get(OFFICIAL_REPORT_SOURCES.rusutsu.sourceUrl)).toBe(2);
     expect(calls.get(OFFICIAL_REPORT_SOURCES.rusutsu.liftDataUrl)).toBe(1);
     expect(calls.get(OFFICIAL_REPORT_SOURCES.madarao.sourceUrl)).toBe(1);
+    expect(calls.get(OFFICIAL_REPORT_SOURCES.hakuba.sourceUrl)).toBe(1);
+    expect(calls.get(OFFICIAL_REPORT_SOURCES.nozawa.sourceUrl)).toBe(1);
     expect(Object.values(payload.reports).every((report) => report.reportedAt === null)).toBe(true);
   });
   it('recovers from a transient network failure without substituting stale prior output', async () => {
@@ -142,7 +201,7 @@ describe('bounded scheduled report collection', () => {
     }) });
     expect(payload.reports.rusutsu.reportedAt).not.toBeNull();
     expect(payload.reports.madarao.reportedAt).not.toBeNull();
-    expect([...attempts.values()]).toEqual([2, 2, 2]);
+    expect([...attempts.values()]).toEqual([2, 2, 2, 2, 2]);
   });
   it('rejects oversized/unrecognized source bodies without publishing page text', async () => {
     const errors: string[] = [];
@@ -154,5 +213,31 @@ describe('bounded scheduled report collection', () => {
   });
   it('rejects invalid collection dates', async () => {
     await expect(collectOfficialReports({ now: new Date(NaN), fetchImpl: fetcher(reportResponse) })).rejects.toThrow(/Collection time/);
+  });
+  it('runs at most three requests together while collecting all independent sources', async () => {
+    let active = 0;
+    let maximum = 0;
+    const payload = await collectOfficialReports({ now: NOW, fetchImpl: fetcher(async (url) => {
+      maximum = Math.max(maximum, ++active);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      active--;
+      return reportResponse(url);
+    }) });
+    expect(maximum).toBe(3);
+    expect(payload.reports.hakuba.depthCm).toBe(0);
+    expect(payload.reports.nozawa.operations?.status).toBe('closed');
+  });
+  it('keeps Nozawa snow unknown and successful sources intact if a new adapter changes', async () => {
+    const errors: string[] = [];
+    const payload = await collectOfficialReports({ now: NOW, onError: (message) => errors.push(message),
+      fetchImpl: fetcher((url) => url === OFFICIAL_REPORT_SOURCES.hakuba.sourceUrl ? new Response(happo.replace('KUROBISHI', 'NEW STATION')) : reportResponse(url)),
+    });
+    expect(payload.reports.hakuba.depthCm).toBeNull();
+    expect(payload.reports.hakuba.reportedAt).toBeNull();
+    expect(payload.reports.nozawa.depthCm).toBeNull();
+    expect(payload.reports.nozawa.snowfall24hCm).toBeNull();
+    expect(payload.reports.nozawa.reportedAt).toBeNull();
+    expect(payload.reports.nozawa.operations?.reportedAt).toBe('2026-05-06T06:54:00.000Z');
+    expect(errors).toEqual(['Happo snow: Happo weather station is unrecognized']);
   });
 });
