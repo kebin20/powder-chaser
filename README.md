@@ -186,6 +186,17 @@ Expand verified official report coverage and licensed Japanese forecast feeds, i
 ## Changelog
 
 <details>
+<summary>0.1.9 · 3 November 2026 · A clearer forecast screen</summary>
+
+- Removed the redundant note below the forecast while keeping the fictional Winter Demo banner visible.
+- Moved the app identity to the top brand and removed footer credits from the main view; source attributions remain in the resort finder.
+- Made **Forecast details & resort report** easier to distinguish.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
 <summary>0.1.8 · 21 October 2026 · Test winter decisions</summary>
 
 - Eleven selectable fictional winter scenarios, with a clear return to live forecasts.
