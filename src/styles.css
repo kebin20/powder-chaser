@@ -169,6 +169,15 @@
 
 /* A short weather outlook and a separate access signal keep the verdict useful. */
 .decision-signals{margin-top:13px;font-size:11px;line-height:1.6}
+
+/* Keep the product name in the masthead, and make the forecast disclosure easy to scan. */
+.brand{font-size:18px;font-weight:600}
+.brand svg{width:27px;height:27px}
+.mobile-header .brand{font-size:16px}
+.mobile-header .brand svg{width:22px;height:22px}
+.evidence>summary{font-size:15px;font-weight:600;color:var(--ink);min-height:62px}
+.evidence>summary>span{gap:10px}
+@media(max-width:380px){.mobile-header .brand{font-size:15px}.evidence>summary{font-size:14px;min-height:58px}}
 .powder-signal,.access-signal{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .powder-signal>span,.access-signal>span{color:var(--muted)}
 .outlook-label{font-weight:600;border-radius:5px;padding:2px 7px;background:#e8eef2;color:#465e6c}
