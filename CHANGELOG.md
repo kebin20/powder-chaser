@@ -7,6 +7,17 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.9 — 2026-11-03</strong> · A clearer forecast screen</summary>
+
+### Changed
+
+- Removed the redundant note beneath the forecast; Winter Demo remains clearly identified by its fictional-data banner.
+- Removed the duplicate footer brand and footer links from the forecast view. Product branding is prominent in the top header, and catalogue credits remain available in the resort finder.
+- Increased the size and weight of the Forecast details & resort report heading for easier scanning.
+
+</details>
+
+<details>
 <summary><strong>0.1.8 — 2026-10-21</strong> · Test winter decisions</summary>
 
 ### Added
