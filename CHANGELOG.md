@@ -7,6 +7,15 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.10 — 2026-11-04</strong> · Clear of the mobile navigation</summary>
+
+### Fixed
+
+- Added bottom scroll space on mobile so the fixed navigation cannot cover the forecast disclosure or the end of expanded report details, including on iPhones with a home-indicator safe area.
+
+</details>
+
+<details>
 <summary><strong>0.1.9 — 2026-11-03</strong> · A clearer forecast screen</summary>
 
 ### Changed

@@ -186,6 +186,15 @@ Expand verified official report coverage and licensed Japanese forecast feeds, i
 ## Changelog
 
 <details>
+<summary>0.1.10 · 4 November 2026 · Clear of the mobile navigation</summary>
+
+- Mobile pages reserve scroll space for the fixed bottom tabs and the iPhone home-indicator area, keeping the forecast disclosure and expanded report reachable.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
 <summary>0.1.9 · 3 November 2026 · A clearer forecast screen</summary>
 
 - Removed the redundant note below the forecast while keeping the fictional Winter Demo banner visible.
