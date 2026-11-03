@@ -201,3 +201,8 @@
 select:focus-visible{outline:2px solid #547f99;outline-offset:3px}
 @media(min-width:851px){.decision-signals{font-size:12px}.access-signal{font-size:11px}.decision-signals.compact{font-size:11px}.decision-signals.compact .access-signal{font-size:10px}.demo-banner{margin-top:13px;padding:10px 15px}.demo-banner>div>span{font-size:9px}.demo-banner .text-button{font-size:12px}.demo-exit{font-size:11px;max-width:none}}
 @media(pointer:coarse){.scenario-settings select{font-size:16px}.demo-exit{min-height:44px}.demo-banner .text-button{min-height:36px}}
+
+/* Leave room for the fixed mobile tabs so the last controls can scroll above them. */
+@media(max-width:850px){
+  .main-column>#main-content{padding-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px))}
+}
