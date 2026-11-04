@@ -186,6 +186,16 @@ Expand verified official report coverage and licensed Japanese forecast feeds, i
 ## Changelog
 
 <details>
+<summary>0.1.12 · 4 November 2026 · Clearer forecast hierarchy</summary>
+
+- Clearer separation between forecast values, section headings, supporting text, and metadata through a tighter type scale, stronger headings, and improved line spacing.
+- The existing restrained palette and serif/sans-serif pairing remain.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
 <summary>0.1.11 · 4 November 2026 · App version in Preferences</summary>
 
 - Find the current app version at the bottom of Preferences. It is read from the package version so it stays in sync with releases.
