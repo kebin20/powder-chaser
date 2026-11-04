@@ -169,6 +169,15 @@
 
 /* A short weather outlook and a separate access signal keep the verdict useful. */
 .decision-signals{margin-top:13px;font-size:11px;line-height:1.6}
+
+/* Keep the product name in the masthead, and make the forecast disclosure easy to scan. */
+.brand{font-size:18px;font-weight:600}
+.brand svg{width:27px;height:27px}
+.mobile-header .brand{font-size:16px}
+.mobile-header .brand svg{width:22px;height:22px}
+.evidence>summary{font-size:15px;font-weight:600;color:var(--ink);min-height:62px}
+.evidence>summary>span{gap:10px}
+@media(max-width:380px){.mobile-header .brand{font-size:15px}.evidence>summary{font-size:14px;min-height:58px}}
 .powder-signal,.access-signal{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .powder-signal>span,.access-signal>span{color:var(--muted)}
 .outlook-label{font-weight:600;border-radius:5px;padding:2px 7px;background:#e8eef2;color:#465e6c}
@@ -192,3 +201,121 @@
 select:focus-visible{outline:2px solid #547f99;outline-offset:3px}
 @media(min-width:851px){.decision-signals{font-size:12px}.access-signal{font-size:11px}.decision-signals.compact{font-size:11px}.decision-signals.compact .access-signal{font-size:10px}.demo-banner{margin-top:13px;padding:10px 15px}.demo-banner>div>span{font-size:9px}.demo-banner .text-button{font-size:12px}.demo-exit{font-size:11px;max-width:none}}
 @media(pointer:coarse){.scenario-settings select{font-size:16px}.demo-exit{min-height:44px}.demo-banner .text-button{min-height:36px}}
+
+/* Leave room for the fixed mobile tabs so the last controls can scroll above them. */
+@media(max-width:850px){
+  .main-column>#main-content{padding-bottom:calc(5.5rem + env(safe-area-inset-bottom, 0px))}
+}
+.version-note{text-align:center;font-size:10px;line-height:1.4;letter-spacing:.05em;color:var(--muted);margin-top:7px}
+
+/* A restrained type scale separates values, section titles, body copy and metadata. */
+:root{--copy:#405d6d}
+.eyebrow,.hero-eyebrow{font-size:10px}
+.weather-slide>.hero-eyebrow,.depth-label>.hero-eyebrow{font-size:10px}
+.mode-label{font-size:9px}
+.small{font-size:12px;line-height:1.6}
+.location-line{font-size:12px}
+.resort-homepage{font-size:12px}
+.date-selector button{font-size:12px}
+.date-selector button small{font-size:11px}
+.hero-caption p{font-size:12px;line-height:1.45}
+.depth-label p{font-size:11px;line-height:1.5}
+.depth-footnote{font-size:11px}
+.depth-location{font-size:10px}
+.snowfall-card .small{font-size:13px;font-weight:550}
+.snowfall-value{margin-top:8px}
+.window-label{font-size:12px;line-height:1.45;white-space:normal;align-items:flex-start}
+.window-label svg{margin-top:2px}
+.snowfall-side>span:first-child{font-size:10px;font-weight:600}
+.snowfall-side>p{font-size:15px}
+.snowfall-side .agreement-label{font-size:11px}
+.verdict{margin:26px 0 24px}
+.verdict>p,.forecast-summary .verdict>p{font-size:14px;line-height:1.65;color:var(--copy)}
+.status{font-size:12px}
+.decision-signals{font-size:13px;line-height:1.65;color:var(--copy)}
+.outlook-label{font-size:12px}
+.outlook-reason{color:var(--copy)}
+.access-signal{font-size:12px}
+.decision-signals.compact{font-size:12px}
+.decision-signals.compact .access-signal{font-size:11px}
+.history-entry{font-size:12px;margin:16px 0 20px}
+.history-button{font-size:13px}
+.evidence>summary{font-size:17px;line-height:1.4;min-height:66px}
+.evidence>summary>span{gap:10px;font-weight:600}
+.evidence>summary>span>svg{width:17px;height:17px}
+.evidence-content h3{font-size:16px;font-weight:600}
+.evidence-content>.small{font-size:13px;color:var(--copy)}
+.model-row{font-size:12px}
+.model-row>a{font-weight:550}
+.model-row>strong{font-size:13px;white-space:normal}
+.evidence-facts>div{font-size:12px}
+.evidence-facts strong{font-size:16px;font-weight:600}
+.method-details summary{font-size:13px;min-height:46px}
+.method-details p{font-size:13px;line-height:1.65;color:var(--copy)}
+.retrieval{font-size:11px}
+.collection-view .resort-select span{font-size:14px}
+.collection-view .resort-select small{font-size:12px}
+.collection-note p{font-size:13px;line-height:1.65}
+.plan-preferences{font-size:12px}
+.plan-card>p{font-size:14px;line-height:1.6}
+.plan-card .decision-signals{text-align:left}
+.plan-checklist h2{font-size:15px;font-weight:600}
+.plan-checklist a{font-size:13px}
+.plan-checklist a>span small{font-size:12px}
+.plan-checklist>p{font-size:12px;line-height:1.65;color:var(--copy)}
+.preference-group legend{font-size:14px;font-weight:600}
+.source-choice strong{font-size:14px;font-weight:600}
+.source-choice small{font-size:13px;line-height:1.6}
+.preference-group>.small{font-size:12px}
+.threshold-display{font-size:12px}
+.range-labels{font-size:11px;line-height:1.5}
+.loading-card p,.error-card p{font-size:14px;line-height:1.65}
+@media(max-width:850px){
+  .location-line{flex-wrap:wrap;row-gap:4px}
+  .mobile-navigation .app-navigation button{font-size:11px}
+  .verdict h2{font-size:26px}
+  .forecast-summary .snowfall-card{gap:10px}
+  .snowfall-side{min-width:80px}
+  .model-row{grid-template-columns:minmax(66px,.8fr) minmax(0,1fr) minmax(72px,auto)}
+  .model-row>strong{font-size:12px}
+  .demo-banner>div>span{font-size:10px}
+  .evidence>summary{font-size:17px}
+}
+@media(max-width:380px){
+  .main-column{padding-inline:17px}
+  .date-selector button small{font-size:10px}
+  .snowfall-card{padding:16px 14px}
+  .snowfall-side{min-width:73px}
+  .snowfall-side .agreement-label{font-size:10px}
+  .verdict h2{font-size:23px}
+  .evidence>summary{font-size:16px;min-height:64px}
+  .model-row{grid-template-columns:minmax(58px,.8fr) minmax(0,1fr) minmax(70px,auto);gap:6px}
+  .history-entry{gap:8px}
+  .history-button{font-size:12px;padding-inline:10px}
+}
+
+/* Keep confidence and model detail available without competing with the snow total. */
+.snowfall-side .confidence-popover{position:relative;display:inline-flex;text-align:left}
+.snowfall-side .confidence-popover>summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;cursor:pointer}
+.confidence-popover>summary::-webkit-details-marker{display:none}
+.confidence-popover>summary svg{width:13px;height:13px;flex:none}
+.confidence-message{position:absolute;right:0;bottom:calc(100% + 8px);z-index:5;width:min(220px,calc(100vw - 54px));padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 8px 24px #21415318;color:var(--ink);text-align:left}
+.confidence-message strong{display:block;font-size:12px;line-height:1.45}
+.confidence-message p{font-size:11px;line-height:1.5;color:var(--muted);margin-top:4px}
+.forecast-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:15px 0 19px}
+.forecast-tools .history-button{width:100%;min-width:0;justify-content:center;gap:7px;padding:8px 9px;font-size:12px;line-height:1.35}
+.forecast-tools .history-button>span{min-width:0;text-align:left}
+.forecast-tools .history-button svg{width:16px;height:16px}
+.model-details{margin:2px 0 15px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.model-details>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:49px;padding:10px 0;cursor:pointer;color:var(--strong);font-size:13px;font-weight:550}
+.model-details>summary::-webkit-details-marker{display:none}
+.model-details>summary svg{color:var(--muted)}
+.model-details[open]>summary svg{transform:rotate(180deg)}
+.model-details>h3{margin-top:4px}
+.model-details>.small{margin-top:5px}
+.model-details .model-comparison{margin-top:10px}
+.model-details .evidence-facts{margin-top:15px;padding:15px 0 17px}
+.snow-report-dialog{max-width:470px}
+.snow-report-dialog .dialog-header{margin-bottom:14px}
+.snow-report-intro{margin:0 0 17px;color:var(--copy);font-size:13px;line-height:1.6}
+@media(max-width:380px){.forecast-tools{gap:7px}.forecast-tools .history-button{gap:5px;padding:8px 6px;font-size:11px}.confidence-message{right:-4px}}

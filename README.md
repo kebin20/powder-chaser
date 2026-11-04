@@ -16,13 +16,14 @@ The deployment environment and forecast mode are separate: both previews start w
 - Calm Alpine design with two **static 2D hero cards**: snowfall conditions and a snow-depth illustration. Swipe or use the carousel buttons; there is no animation or automatic rotation.
 - Japan resort selection, two upcoming ski mornings in Japan time, and base/upper-mountain forecasts.
 - Overnight snowfall range, followed by a short trip recommendation with separate powder potential and trip-date access signals.
-- Expandable model comparison, official resort links, and data limitations.
+- An optional model and conditions breakdown, with forecast confidence available on demand.
+- A dedicated resort snow report for published snowfall, snow depth, reporting time and official links. Station readings are not represented as piste-specific measurements.
 - Eleven selectable Winter Demo scenarios for testing powder, rain, wind, closures, missing/outdated data and connection failures before winter.
 - A personal minimum-snowfall threshold and favourite resorts saved in your browser.
 - A searchable Japan catalogue of 520 downhill areas across 35 prefectures, with English/Japanese names, aliases, and prefecture filters.
 - An on-demand snowfall-history view: published Grand Hirafu records where verified, and clearly labelled ERA5 estimates elsewhere, with five/ten winter charts and source details.
 - Compare saved resorts for the same ski morning in Favorites: forecast range, Go / Maybe / Skip and the main concern, six resorts at a time.
-- Open the morning resort check inside forecast details for dated official snow/lift reports where supported, plus official report and webcam links.
+- Open dated resort snow and optional lift reports in a separate dialog, with official report and webcam links where supported.
 - Search by resort or region, save a personal shortlist, and compare the next two mornings in Plan a trip.
 - Outlined alpine favicon, Apple home-screen icon, web app manifest, and an offline app shell.
 - A wider desktop dashboard with the hero and forecast summary alongside each other, while phones retain the compact layout.
@@ -184,6 +185,56 @@ The existing eight curated IDs are retained, so saved favourites survive the exp
 Expand verified official report coverage and licensed Japanese forecast feeds, improve catalogue coverage and historical records, and collect comparable observations to evaluate forecast accuracy. Historical forecast replay, forecast-change indicators and quiet personalised powder alerts are future work. Winter Demo validates behaviour; it does not establish powder accuracy.
 
 ## Changelog
+
+<details>
+<summary>0.1.13 · 5 November 2026 · A quieter forecast and resort snow report</summary>
+
+- Moved model comparisons, confidence details, temperature and wind into optional details.
+- Added a separate resort snow report with station, reporting time, 24-hour snow, total depth and official links. A short note clarifies that station readings can vary between pistes.
+- Put paired snow history and snow report buttons under the main forecast.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
+<summary>0.1.12 · 4 November 2026 · Clearer forecast hierarchy</summary>
+
+- Clearer separation between forecast values, section headings, supporting text, and metadata through a tighter type scale, stronger headings, and improved line spacing.
+- The existing restrained palette and serif/sans-serif pairing remain.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
+<summary>0.1.11 · 4 November 2026 · App version in Preferences</summary>
+
+- Find the current app version at the bottom of Preferences. It is read from the package version so it stays in sync with releases.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
+<summary>0.1.10 · 4 November 2026 · Clear of the mobile navigation</summary>
+
+- Mobile pages reserve scroll space for the fixed bottom tabs and the iPhone home-indicator area, keeping the forecast disclosure and expanded report reachable.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
+<summary>0.1.9 · 3 November 2026 · A clearer forecast screen</summary>
+
+- Removed the redundant note below the forecast while keeping the fictional Winter Demo banner visible.
+- Moved the app identity to the top brand and removed footer credits from the main view; source attributions remain in the resort finder.
+- Made **Forecast details & resort report** easier to distinguish.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
 
 <details>
 <summary>0.1.8 · 21 October 2026 · Test winter decisions</summary>

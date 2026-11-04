@@ -7,6 +7,58 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.13 — 2026-11-05</strong> · A quieter forecast and resort snow report</summary>
+
+### Added
+
+- Added a dedicated **Snow report** button for resort-reported 24-hour snowfall, total snow depth, timestamps and official links. Station readings are clearly distinguished from piste-specific conditions; lift details stay tucked away.
+
+### Changed
+
+- Moved forecast confidence, model comparisons, temperature and wind into optional details. Confidence explanations now open from a compact control beside the snowfall figure.
+- Kept the main view focused on overnight snowfall and the Go / Maybe / Skip recommendation, with paired buttons for snow history and the resort report.
+
+</details>
+
+<details>
+<summary><strong>0.1.12 — 2026-11-04</strong> · Clearer forecast hierarchy</summary>
+
+### Changed
+
+- Established more distinct text sizes and weights for forecast values, section headings, supporting copy and metadata. Increased line spacing and kept the existing palette and type pairing.
+
+</details>
+
+<details>
+<summary><strong>0.1.11 — 2026-11-04</strong> · App version in Preferences</summary>
+
+### Added
+
+- Added a small, automatically synced version label at the bottom of Preferences.
+
+</details>
+
+<details>
+<summary><strong>0.1.10 — 2026-11-04</strong> · Clear of the mobile navigation</summary>
+
+### Fixed
+
+- Added bottom scroll space on mobile so the fixed navigation cannot cover the forecast disclosure or the end of expanded report details, including on iPhones with a home-indicator safe area.
+
+</details>
+
+<details>
+<summary><strong>0.1.9 — 2026-11-03</strong> · A clearer forecast screen</summary>
+
+### Changed
+
+- Removed the redundant note beneath the forecast; Winter Demo remains clearly identified by its fictional-data banner.
+- Removed the duplicate footer brand and footer links from the forecast view. Product branding is prominent in the top header, and catalogue credits remain available in the resort finder.
+- Increased the size and weight of the Forecast details & resort report heading for easier scanning.
+
+</details>
+
+<details>
 <summary><strong>0.1.8 — 2026-10-21</strong> · Test winter decisions</summary>
 
 ### Added
