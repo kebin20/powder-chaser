@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ExternalLink, MountainSnow } from 'lucide-react';
+import { ChevronDown, ExternalLink, MountainSnow } from 'lucide-react';
 import { getResortReportView, loadResortReports, RESORT_REPORT_CACHE_TTL_MS, type ResortReports } from '../lib/resort-reports';
 import { RESORT_WEBCAMS } from '../data/resort-webcams';
 import type { DataMode, Resort, WeatherSnapshot } from '../types';
@@ -8,7 +8,7 @@ import './MorningCheck.css';
 function reportTime(value: string | null) {
   return value ? `${new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tokyo', dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))} JST` : 'Time not published';
 }
-function snow(value: number | null) { return value === null ? 'Unavailable' : `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm`; }
+function snow(value: number | null) { return value === null ? 'Not reported' : `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm`; }
 const operationLabels = { open: 'Operating', partial: 'Partly operating', hold: 'On hold', closed: 'Closed', unknown: 'Unverified' };
 
 export default function MorningCheck({ resort, date, mode, snapshot }: { resort: Resort; date: string; mode: DataMode; snapshot: WeatherSnapshot | null }) {
@@ -46,19 +46,36 @@ export default function MorningCheck({ resort, date, mode, snapshot }: { resort:
   const webcamUrl = report?.webcamUrl ?? RESORT_WEBCAMS[resort.id];
   const hasOfficialLink = Boolean(report || resort.officialReportUrl || resort.officialUrl);
   const hasValues = fresh !== null || depth !== null;
-  return <section className="morning-check" aria-labelledby="morning-check-title">
-    <div className="morning-check-heading"><h3 id="morning-check-title"><MountainSnow size={16} aria-hidden="true" />Morning resort check</h3><span className={`report-state ${stale ? 'past' : ''}`}>{fictional ? 'DEMO' : stale ? 'PAST REPORT' : hasValues ? 'RESORT REPORT' : 'CHECK RESORT'}</span></div>
-    <p className="morning-check-location">{fictional ? 'Example reporting station · fictional' : report?.station ?? 'Resort observations · separate from model forecasts'}</p>
-    {loading && !data && <p className="small muted" role="status">Checking the latest collected report…</p>}
-    <div className="morning-check-facts"><div><span>Reported fresh · last 24 h</span><strong>{snow(fresh)}</strong>{!fictional && view.snowfall24h.status === 'stale' && <small>Past report</small>}</div><div><span>Total reported depth</span><strong>{snow(depth)}</strong>{!fictional && view.depth.status === 'stale' && <small>Past report</small>}</div></div>
-    <div className="morning-check-operations"><span>Lift status{!fictional && view.operations.freshness === 'stale' ? ' · past report' : ''}</span><strong>{operationLabels[status]}</strong><p>{fictional ? snapshot.operations.details : (view.operations.freshness !== 'unavailable' ? view.operations.details : null) ?? 'A current lift report is not available. Confirm directly with the resort.'}</p>{!fictional && view.operations.freshness !== 'unavailable' && view.operations.reportedAt && <small>{reportTime(view.operations.reportedAt)}</small>}</div>
-    {fictional ? <p className="morning-check-note">{fictionalStale ? 'Simulated outdated report · 26 hours old. ' : ''}Illustrative snow and operations; these are not current mountain conditions.</p> : <>
-      {report?.reportedAt && <p className="morning-check-note">Snow report: {reportTime(report.reportedAt)}{stale ? ' · no current snow report' : ''}.</p>}
-      {error && data && !loading && <p className="morning-check-note">The report could not be refreshed. Showing the last collected readings; check the official page.<button className="text-button" onClick={() => setRefresh(value => value + 1)}>Try again</button></p>}
-      {!hasValues && !loading && !(error && data) && <p className="morning-check-note">{error ? 'The collected report could not be loaded. Official links are still available.' : 'No dated snowfall readings are available here yet. Missing values stay unknown.'}{error && <button className="text-button" onClick={() => setRefresh(value => value + 1)}>Try again</button>}</p>}
-      {!view.operations.appliesToTripDate && <p className="morning-check-note">Access for {new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tokyo', month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00+09:00`))} is unconfirmed. A current-day report does not confirm your ski morning.</p>}
-      {hasValues && <p className="morning-check-note">Reported 24-hour snow uses a different window from the overnight forecast.</p>}
+  const hasOperations = Boolean(fictional || view.operations.freshness !== 'unavailable');
+  const reportState = fictional ? 'DEMO · FICTIONAL' : stale ? 'PAST REPORT' : hasValues ? 'RESORT REPORT' : loading ? 'CHECKING' : 'NO READING';
+
+  return <section className="morning-check" aria-label={`${resort.name} snow measurements`}>
+    <div className="morning-check-heading">
+      <p className="morning-check-location"><MountainSnow size={15} aria-hidden="true" />{fictional ? 'Example station' : report?.station ?? 'Station not specified'}</p>
+      <span className={`report-state ${stale ? 'past' : ''}`}>{reportState}</span>
+    </div>
+    {report?.reportedAt && <p className="morning-check-time">Reported {reportTime(report.reportedAt)}{stale ? ' · past reading' : ''}</p>}
+    {loading && !data && <p className="small muted" role="status">Checking the latest resort reading…</p>}
+    <div className="morning-check-facts">
+      <div><span>Fresh snow · last 24 h</span><strong>{snow(fresh)}</strong>{!fictional && view.snowfall24h.status === 'stale' && <small>Past report</small>}</div>
+      <div><span>Total snow depth</span><strong>{snow(depth)}</strong>{!fictional && view.depth.status === 'stale' && <small>Past report</small>}</div>
+    </div>
+    {fictional ? <p className="morning-check-note">{fictionalStale ? 'Simulated older reading. ' : ''}Demo values are fictional, not current mountain conditions.</p> : <>
+      {hasValues && <p className="morning-check-note">The resort’s reporting window may differ from the overnight forecast.</p>}
+      {error && data && !loading && <p className="morning-check-note" role="status">Showing the last collected reading. <button className="text-button" onClick={() => setRefresh(value => value + 1)}>Try again</button></p>}
+      {!hasValues && !loading && <p className="morning-check-note" role={error ? 'alert' : undefined}>{error ? 'The collected reading could not be loaded.' : 'No dated snow reading is available in the app yet.'} <button className="text-button" onClick={() => setRefresh(value => value + 1)}>{error ? 'Try again' : 'Refresh'}</button></p>}
     </>}
-    <div className="morning-check-links"><a className="text-link" href={reportUrl} target="_blank" rel="noreferrer">{hasOfficialLink ? 'Official resort report' : 'Resort map listing'}<ExternalLink size={12} aria-hidden="true" /></a>{webcamUrl && <a className="text-link" href={webcamUrl} target="_blank" rel="noreferrer">Official webcam<ExternalLink size={12} aria-hidden="true" /></a>}</div>
+    {hasOperations && <details className="report-operations">
+      <summary><span>Lift status · {operationLabels[status]}</span><ChevronDown size={14} aria-hidden="true" /></summary>
+      <div>
+        <p>{fictional ? snapshot.operations.details : view.operations.details ?? 'No lift update is available. Confirm directly with the resort.'}</p>
+        {!fictional && view.operations.reportedAt && <small>Reported {reportTime(view.operations.reportedAt)}{view.operations.freshness === 'stale' ? ' · past report' : ''}</small>}
+        {!view.operations.appliesToTripDate && <small>Access for {new Intl.DateTimeFormat('en', { timeZone: 'Asia/Tokyo', month: 'short', day: 'numeric' }).format(new Date(`${date}T12:00:00+09:00`))} is not confirmed by this report.</small>}
+      </div>
+    </details>}
+    <div className="morning-check-links">
+      <a className="text-link" href={reportUrl} target="_blank" rel="noreferrer">{hasOfficialLink ? 'Official resort report' : 'Resort map listing'}<ExternalLink size={12} aria-hidden="true" /></a>
+      {webcamUrl && <a className="text-link" href={webcamUrl} target="_blank" rel="noreferrer">Official webcam<ExternalLink size={12} aria-hidden="true" /></a>}
+    </div>
   </section>;
 }

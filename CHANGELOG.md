@@ -7,6 +7,20 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.13 — 2026-11-05</strong> · A quieter forecast and resort snow report</summary>
+
+### Added
+
+- Added a dedicated **Snow report** button for resort-reported 24-hour snowfall, total snow depth, timestamps and official links. Station readings are clearly distinguished from piste-specific conditions; lift details stay tucked away.
+
+### Changed
+
+- Moved forecast confidence, model comparisons, temperature and wind into optional details. Confidence explanations now open from a compact control beside the snowfall figure.
+- Kept the main view focused on overnight snowfall and the Go / Maybe / Skip recommendation, with paired buttons for snow history and the resort report.
+
+</details>
+
+<details>
 <summary><strong>0.1.12 — 2026-11-04</strong> · Clearer forecast hierarchy</summary>
 
 ### Changed
