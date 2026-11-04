@@ -7,6 +7,15 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.11 — 2026-11-04</strong> · App version in Preferences</summary>
+
+### Added
+
+- Added a small, automatically synced version label at the bottom of Preferences.
+
+</details>
+
+<details>
 <summary><strong>0.1.10 — 2026-11-04</strong> · Clear of the mobile navigation</summary>
 
 ### Fixed
