@@ -186,6 +186,15 @@ Expand verified official report coverage and licensed Japanese forecast feeds, i
 ## Changelog
 
 <details>
+<summary>0.1.11 · 4 November 2026 · App version in Preferences</summary>
+
+- Find the current app version at the bottom of Preferences. It is read from the package version so it stays in sync with releases.
+
+[Open the full changelog](CHANGELOG.md).
+
+</details>
+
+<details>
 <summary>0.1.10 · 4 November 2026 · Clear of the mobile navigation</summary>
 
 - Mobile pages reserve scroll space for the fixed bottom tabs and the iPhone home-indicator area, keeping the forecast disclosure and expanded report reachable.
