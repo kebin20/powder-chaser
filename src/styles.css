@@ -294,3 +294,29 @@ select:focus-visible{outline:2px solid #547f99;outline-offset:3px}
   .history-entry{gap:8px}
   .history-button{font-size:12px;padding-inline:10px}
 }
+
+/* Keep confidence and model detail available without competing with the snow total. */
+.snowfall-side .confidence-popover{position:relative;display:inline-flex;text-align:left}
+.snowfall-side .confidence-popover>summary{list-style:none;display:inline-flex;align-items:center;justify-content:center;gap:5px;cursor:pointer}
+.confidence-popover>summary::-webkit-details-marker{display:none}
+.confidence-popover>summary svg{width:13px;height:13px;flex:none}
+.confidence-message{position:absolute;right:0;bottom:calc(100% + 8px);z-index:5;width:min(220px,calc(100vw - 54px));padding:12px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:0 8px 24px #21415318;color:var(--ink);text-align:left}
+.confidence-message strong{display:block;font-size:12px;line-height:1.45}
+.confidence-message p{font-size:11px;line-height:1.5;color:var(--muted);margin-top:4px}
+.forecast-tools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin:15px 0 19px}
+.forecast-tools .history-button{width:100%;min-width:0;justify-content:center;gap:7px;padding:8px 9px;font-size:12px;line-height:1.35}
+.forecast-tools .history-button>span{min-width:0;text-align:left}
+.forecast-tools .history-button svg{width:16px;height:16px}
+.model-details{margin:2px 0 15px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.model-details>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:49px;padding:10px 0;cursor:pointer;color:var(--strong);font-size:13px;font-weight:550}
+.model-details>summary::-webkit-details-marker{display:none}
+.model-details>summary svg{color:var(--muted)}
+.model-details[open]>summary svg{transform:rotate(180deg)}
+.model-details>h3{margin-top:4px}
+.model-details>.small{margin-top:5px}
+.model-details .model-comparison{margin-top:10px}
+.model-details .evidence-facts{margin-top:15px;padding:15px 0 17px}
+.snow-report-dialog{max-width:470px}
+.snow-report-dialog .dialog-header{margin-bottom:14px}
+.snow-report-intro{margin:0 0 17px;color:var(--copy);font-size:13px;line-height:1.6}
+@media(max-width:380px){.forecast-tools{gap:7px}.forecast-tools .history-button{gap:5px;padding:8px 6px;font-size:11px}.confidence-message{right:-4px}}

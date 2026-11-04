@@ -1,1 +1,24 @@
-.morning-check{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:22px 0;margin:22px 0}.morning-check-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.morning-check-heading h3{display:flex;align-items:center;gap:7px;font-size:13px;margin:0}.report-state{font-size:8px;letter-spacing:.07em;border-radius:5px;background:#e8eff3;color:#46677b;padding:5px 7px;white-space:nowrap}.report-state.past{background:#f3ecdf;color:#745c2e}.morning-check-location{font-size:11px;line-height:1.5;color:var(--muted);margin:9px 0 16px}.morning-check-facts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:14px 0 18px}.morning-check-facts>div{display:flex;flex-direction:column;gap:7px;min-width:0}.morning-check-facts span,.morning-check-operations>span{font-size:10px;color:var(--muted);line-height:1.45}.morning-check-facts strong{font-weight:500;font-size:22px;line-height:1.2;overflow-wrap:anywhere}.morning-check-facts small{font-size:10px;color:#745c2e}.morning-check-operations{display:grid;grid-template-columns:1fr auto;gap:8px 16px}.morning-check-operations>strong{font-size:12px;font-weight:600}.morning-check-operations>p,.morning-check-operations>small{grid-column:1/-1;font-size:11px;color:var(--muted);line-height:1.65}.morning-check-operations>small{font-size:10px}.morning-check-note{font-size:10px;line-height:1.65;color:var(--muted);margin-top:10px}.morning-check-note .text-button{margin-left:8px}.morning-check-links{display:flex;gap:12px 24px;flex-wrap:wrap;margin-top:16px}.morning-check-links a{min-height:30px;text-decoration:underline;text-underline-offset:3px}@media(min-width:1100px){.morning-check-facts strong{font-size:25px}.morning-check-heading h3{font-size:14px}.morning-check-location{font-size:12px}}
+.morning-check{padding:4px 0 2px}
+.morning-check-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.morning-check-location{display:flex;align-items:center;gap:7px;min-width:0;color:var(--ink);font-size:13px;font-weight:550;line-height:1.5}
+.morning-check-location svg{flex:none;color:var(--accent)}
+.report-state{flex:none;border-radius:6px;background:#e8eff3;color:#46677b;padding:5px 8px;font-size:9px;letter-spacing:.06em;line-height:1.35;white-space:nowrap}
+.report-state.past{background:#f3ecdf;color:#745c2e}
+.morning-check-time{margin-top:5px;color:var(--muted);font-size:11px;line-height:1.5}
+.morning-check-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:17px 0 13px}
+.morning-check-facts>div{display:flex;flex-direction:column;gap:7px;min-width:0;padding:13px;border:1px solid var(--line);border-radius:10px;background:#fff9}
+.morning-check-facts span{font-size:11px;color:var(--muted);line-height:1.45}
+.morning-check-facts strong{font-weight:550;font-size:20px;line-height:1.2;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.morning-check-facts small{font-size:10px;color:#745c2e}
+.morning-check-note{margin-top:10px;color:var(--muted);font-size:11px;line-height:1.55}
+.morning-check-note .text-button{margin-left:7px;min-height:32px}
+.morning-check-links{display:flex;gap:8px 22px;flex-wrap:wrap;margin-top:15px}
+.morning-check-links a{min-height:38px;text-decoration:underline;text-underline-offset:3px}
+.report-operations{margin-top:10px;border-top:1px solid var(--line)}
+.report-operations>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:46px;cursor:pointer;color:var(--strong);font-size:12px;font-weight:550}
+.report-operations>summary::-webkit-details-marker{display:none}
+.report-operations>summary svg{color:var(--muted)}
+.report-operations[open]>summary svg{transform:rotate(180deg)}
+.report-operations>div{display:grid;gap:8px;padding-bottom:11px}
+.report-operations p,.report-operations small{color:var(--muted);font-size:11px;line-height:1.55}
+@media(max-width:380px){.morning-check-facts{gap:7px}.morning-check-facts>div{padding:11px 9px}.morning-check-facts strong{font-size:17px}.morning-check-location{font-size:12px}}
