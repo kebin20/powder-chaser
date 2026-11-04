@@ -13,7 +13,7 @@ export default class HistoryBoundary extends Component<{ children: ReactNode; on
   render() {
     if (!this.state.failed) return this.props.children;
     return <div className="history-chunk-loading" role="alert">
-      <p>Snowfall history couldn’t open. Check your connection and reload to try again.</p>
+      <p>History couldn’t open. Check your connection and reload to try again.</p>
       <button ref={this.closeButton} className="text-button" onClick={this.props.onClose}>Close</button>
       <button className="text-button" onClick={() => window.location.reload()}>Reload app</button>
     </div>;

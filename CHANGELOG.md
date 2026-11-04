@@ -7,6 +7,21 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.14 — 2026-11-05</strong> · Compare winter snow depth</summary>
+
+### Added
+
+- Replaced the Snow report shortcut with a **Snow depth history** comparison. Select five or ten completed winters, choose seasons to overlay, and inspect estimated depth on matching dates from November through April.
+- Added a lightweight, keyboard-operable date slider and a responsive chart with exact centimetre readouts for the selected date.
+- Clearly labelled ERA5-Land reanalysis estimates, their approximate grid scale, elevation sampling, missing-data gaps, source and overestimation limitation. Official resort snowfall totals remain available through Snowfall history when published.
+
+### Improved
+
+- History requests remain on demand and complete daily depth series are cached locally for seven days. The seasonal-depth chart loads as a separate UI chunk.
+
+</details>
+
+<details>
 <summary><strong>0.1.13 — 2026-11-05</strong> · A quieter forecast and resort snow report</summary>
 
 ### Added

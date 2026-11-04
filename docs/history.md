@@ -1,6 +1,8 @@
-# Snowfall history
+# Historical snow data
 
-The history button opens a separate, lazily loaded view. It never changes the current forecast or trip recommendation, and neither searching the Japan catalogue nor saving a favourite fetches historical weather for every resort.
+The history buttons open separate, lazily loaded views. They never change the current forecast or trip recommendation, and neither searching the Japan catalogue nor saving a favourite fetches historical weather for every resort.
+
+The app has two separate history views: **Snowfall history** for seasonal fresh-snow totals and **Snow depth history** for daily snowpack comparisons. These values use different source variables and are never combined as if they were the same measurement.
 
 ## Sources stay separate
 
@@ -22,8 +24,18 @@ Archive requests start only after opening the history view and choosing a source
 
 Long archive queries count as multiple weighted API calls. The [Open-Meteo pricing documentation](https://open-meteo.com/en/pricing) explains the accounting. On-demand loading and persistence avoid repeatedly downloading large ranges. The initial free endpoint is for non-commercial use under the [provider terms](https://open-meteo.com/en/terms), with the displayed Open-Meteo/ERA5 attribution. At larger traffic volumes, move reusable historical summaries to a licensed server/static dataset or commercial archive plan; do not prefetch histories for the entire catalogue from each visitor.
 
+## Snow depth history
+
+The **Snow depth history** view uses the hourly `snow_depth` variable from Open-Meteo's [Historical Weather API](https://open-meteo.com/en/docs/historical-weather-api), pinned to **ERA5-Land** for the full comparison period. The provider documents this reanalysis at approximately **11 km** resolution and notes that ERA5-Land snow depth can be overestimated. A grid estimate cannot represent a specific run, piste, patrol station, drifting, or the exact local snowpack.
+
+The chart samples the grid at **09:00 Japan time** each day from 1 November through 30 April. Metres are converted to centimetres. A mapped base/upper elevation is passed to the provider when available; unknown elevations use the provider's grid height and are labelled Resort area. Five or ten completed winters can be compared. Lines align by month and day, and a keyboard-accessible date slider shows the depth estimate for the same date across selected winters. Missing values remain chart gaps and appear as unavailable in the date readout.
+
+This is explicitly an **estimate**, not a resort report. The currently curated Grand Hirafu resort archive publishes seasonal snowfall totals, but not a daily snow-depth series; that official dataset remains in the separate Snowfall history view and is never converted into depth. A future resort adapter should use only a dated, source-linked daily depth archive and keep its station and measurement period visible.
+
+Depth history loads only after opening the view for the selected resort. Complete daily series are cached in this browser for seven days, with up to four compact parsed datasets. Incomplete datasets remain usable for the current view but are fetched again next time. The request is cancelled when the dialog closes and times out after 25 seconds. New data requires a connection; a previously cached complete comparison can be opened offline.
+
 [JMA's historical CSV downloads](https://ds.data.jma.go.jp/risk/obsdl/) could support a future station-observation adapter. A nearby JMA station must retain its own name, height, distance, coverage and quality flags; it must not be presented as a resort measurement. This release does not import JMA historical station records.
 
 ## Checks
 
-Behavioural tests cover Japan season boundaries, leap days, source separation, official partial/final facts, units/time zone, missing data, cancellation, cache limits/expiry and stale-request protection. Browser checks cover source/range selection, monthly and table views, mobile/desktop layout, focus/Escape, retry/offline states, lazy loading, favourites and catalogue filters. A real archive request was also checked for HTTP 200, cm units and JST timestamps.
+Behavioural tests cover Japan season boundaries, leap days, source separation, official partial/final facts, units/time zone, missing data, cancellation, cache limits/expiry and stale-request protection. Browser checks cover source/range selection, monthly and table views, mobile/desktop layout, focus/Escape, retry/offline states, lazy loading, favourites and catalogue filters. Snow-depth parsing additionally requires metre units, an Asia/Tokyo timestamp, and a usable 09:00 reading before a daily point is included.
