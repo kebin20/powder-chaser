@@ -12,6 +12,7 @@ import { formatJapanTime, getTripDates } from './lib/dates';
 import { clearWeatherCache, fetchLiveSnapshot, WEATHER_CACHE_TTL_MS } from './lib/weather';
 import { normalizePreferences, type Preferences } from './lib/preferences';
 import type { DataMode, Elevation, PowderDecision, Resort, TripDate, WeatherSnapshot } from './types';
+import { version as appVersion } from '../package.json';
 
 const SnowfallHistory = lazy(() => import('./components/SnowfallHistory'));
 const FavoritesComparison = lazy(() => import('./components/FavoritesComparison'));
@@ -273,7 +274,7 @@ export default function App() {
       {preferences.mode === 'demo' && <fieldset className="preference-group scenario-settings"><legend>Winter test scenario</legend><label className="sr-only" htmlFor="demo-scenario">Winter test scenario</label><select id="demo-scenario" value={preferences.demoScenario} onChange={event => patch({ demoScenario: normalizeDemoScenario(event.target.value) })}>{DEMO_SCENARIOS.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.label}</option>)}</select><p className="scenario-description">{demoScenario.description}</p>{preferences.demoScenario === 'rain' && <div className="elevation-switch" role="group" aria-label="Rain scenario elevation">{(['upper', 'base'] as const).map(value => <button key={value} aria-pressed={preferences.elevation === value} onClick={() => patch({ elevation: value })}>{value === 'upper' ? 'Upper · snow' : 'Base · rain'}</button>)}</div>}<p className="small muted">These fictional tests check app behaviour. They do not measure forecast accuracy.</p></fieldset>}
       <fieldset className="preference-group"><legend>Your worthwhile snowfall</legend><div className="threshold-display"><span>Minimum fresh snow</span><strong>{preferences.threshold}<small> cm</small></strong></div><label className="sr-only" htmlFor="snow-threshold">Minimum worthwhile fresh snowfall in centimeters</label><input id="snow-threshold" className="threshold-slider" type="range" min="5" max="50" step="5" value={preferences.threshold} onChange={event => patch({ threshold: Number(event.target.value) })} /><div className="range-labels"><span>5 cm · a little refresh</span><span>50 cm · deep day</span></div></fieldset>
       <fieldset className="preference-group"><legend>Mountain elevation</legend><div className="elevation-switch" role="group" aria-label="Preferred forecast elevation">{(['upper', 'base'] as const).map(value => <button key={value} aria-pressed={preferences.elevation === value} onClick={() => patch({ elevation: value })}>{value === 'upper' ? 'Upper mountain' : 'Base area'}</button>)}</div></fieldset>
-      <button className="primary-button full-width" onClick={() => settings.current?.close()}>Back to the mountains<ChevronRight size={15} /></button><p className="settings-note">Preferences save automatically in this browser.</p>
+      <button className="primary-button full-width" onClick={() => settings.current?.close()}>Back to the mountains<ChevronRight size={15} /></button><p className="settings-note">Preferences save automatically in this browser.</p><p className="version-note">Version {appVersion}</p>
     </dialog>
   </div>;
 }
