@@ -7,6 +7,15 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.12 — 2026-11-04</strong> · Clearer forecast hierarchy</summary>
+
+### Changed
+
+- Established more distinct text sizes and weights for forecast values, section headings, supporting copy and metadata. Increased line spacing and kept the existing palette and type pairing.
+
+</details>
+
+<details>
 <summary><strong>0.1.11 — 2026-11-04</strong> · App version in Preferences</summary>
 
 ### Added
