@@ -1,0 +1,110 @@
+.snow-depth-dialog{width:calc(100% - 48px);max-width:960px;max-height:calc(100dvh - 48px);padding:0;border:1px solid #d8e5ec;border-radius:24px;background:#f5f8fa;color:#284756;box-shadow:0 24px 100px #183a4b35;overflow-y:auto;overscroll-behavior:contain}
+.snow-depth-dialog::backdrop{background:#183a4b66}
+.snow-depth-header{position:sticky;top:0;z-index:2;display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:27px 32px 20px;background:#f5f8fa;border-bottom:1px solid #dce7ed}
+.snow-depth-header>div{min-width:0}
+.snow-depth-eyebrow{font-size:10px;letter-spacing:.12em;line-height:1.5;color:#536f80;font-weight:650}
+.snow-depth-header h2{font:400 34px/1.15 Georgia,"Times New Roman",serif;letter-spacing:-.03em;margin:7px 0}
+.snow-depth-resort{font-size:15px;line-height:1.5;font-weight:600;overflow-wrap:anywhere}
+.snow-depth-location{font-size:12px;line-height:1.5;color:#536f80;margin-top:3px}
+.snow-depth-close{display:flex;align-items:center;justify-content:center;flex-shrink:0;min-width:44px;min-height:44px;border-radius:12px;background:#e6f0f5;color:#355f76;margin-top:-4px;margin-right:-8px}
+.snow-depth-close:hover{background:#d6e6ee}
+.snow-depth-content{padding:22px 32px 30px}
+.snow-depth-description{font-size:13px;line-height:1.6;color:#466575;max-width:68ch}
+.snow-depth-range{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:18px 0;font-size:12px;color:#536f80}
+.snow-depth-range>div{display:flex;gap:4px;padding:4px;background:#e6f0f5;border-radius:11px;flex-shrink:0}
+.snow-depth-range button{min-height:38px;padding:8px 14px;border-radius:8px;background:transparent;font-size:12px;color:#355f76}
+.snow-depth-range button[aria-pressed=true]{background:#355f76;color:#fff}
+.snow-depth-source{border:1px solid #d4e2eb;border-radius:13px;background:#e9f2f6;padding:14px 17px;margin:0 0 20px}
+.snow-depth-source>div{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.snow-depth-source-badge{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:6px;background:#fff;color:#355f76;font-size:10px;letter-spacing:.06em;font-weight:700}
+.snow-depth-source>div>a,.snow-depth-method a{display:inline-flex;align-items:center;gap:5px;color:#355f76;font-size:11px;text-decoration:underline;text-underline-offset:3px}
+.snow-depth-source>p{font-size:11px;line-height:1.65;color:#466575;margin-top:9px;max-width:90ch}
+.snow-depth-source .snow-depth-official-note{display:flex;gap:7px;align-items:flex-start;padding-top:9px;margin-top:9px;border-top:1px solid #d2e1e8;color:#355f76}
+.snow-depth-official-note svg{flex:0 0 auto;margin-top:1px}
+.snow-depth-offline{display:flex;align-items:flex-start;gap:8px;padding:11px 13px;background:#f3ead6;color:#73572f;font-size:11px;line-height:1.6;border-radius:9px;margin-bottom:15px}
+.snow-depth-offline svg{flex:0 0 auto;margin-top:1px}
+.snow-depth-season-picker{margin:0 0 15px;border:1px solid #dce7ed;border-radius:12px;background:#fff;overflow:hidden}
+.snow-depth-season-picker>summary{display:flex;align-items:center;gap:9px;min-height:48px;padding:10px 14px;list-style:none;cursor:pointer;font-size:12px;font-weight:600;color:#355f76}
+.snow-depth-season-picker>summary::-webkit-details-marker{display:none}
+.snow-depth-season-picker>summary>span:first-child{margin-right:auto}
+.snow-depth-selection-count{font-size:10px;color:#6d8796;font-weight:500}
+.snow-depth-season-picker[open]>summary svg{transform:rotate(180deg)}
+.snow-depth-season-picker[open]>div{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:7px;padding:0 12px 12px}
+.snow-depth-season-picker label{display:flex;align-items:center;gap:6px;min-width:0;min-height:36px;padding:5px 7px;border:1px solid #e0e9ee;border-radius:8px;font-size:10px;color:#355f76;cursor:pointer}
+.snow-depth-season-picker label:has(input:checked){background:#f1f6f8;border-color:#b9cfda}
+.snow-depth-season-picker label input{width:14px;height:14px;flex:0 0 auto;accent-color:#355f76;margin:0}
+.snow-depth-season-picker label>i,.depth-chart-legend i,.depth-inspector-values i{width:8px;height:8px;flex:0 0 auto;border-radius:50%}
+.snow-depth-season-picker label>span{white-space:nowrap}
+.snow-depth-season-picker label small{margin-left:auto;font-size:9px;color:#738b99;white-space:nowrap}
+.snow-depth-chart-section{border:1px solid #dce7ed;border-radius:14px;background:#fff;padding:17px 18px 16px}
+.snow-depth-chart-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.snow-depth-chart-heading h3{font-size:15px;line-height:1.5;font-weight:650;color:#284756}
+.snow-depth-chart-heading>span{font-size:10px;color:#6b8594}
+.snow-depth-chart-caption{margin-top:3px;font-size:11px;line-height:1.55;color:#6b8594}
+.depth-chart-wrap{margin-top:8px;width:100%;overflow:hidden}
+.depth-chart{display:block;width:100%;height:auto;overflow:visible;touch-action:pan-y;cursor:crosshair}
+.depth-chart-grid line{stroke:#e7eef2;stroke-width:1}
+.depth-chart-grid text,.depth-chart-month text{fill:#708997;font:11px ui-sans-serif,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.depth-chart-month line{stroke:#edf2f5;stroke-width:1;stroke-dasharray:2 4}
+.depth-chart path{fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}
+.depth-chart-inspection{stroke:#526f80;stroke-width:1;stroke-dasharray:4 4;opacity:.65;vector-effect:non-scaling-stroke}
+.depth-chart-point{stroke:#fff;stroke-width:2;vector-effect:non-scaling-stroke}
+.depth-chart-legend{display:flex;gap:10px 16px;flex-wrap:wrap;padding:7px 0 2px}
+.depth-chart-legend>span,.depth-inspector-values>div>span{display:inline-flex;align-items:center;gap:6px;font-size:10px;line-height:1.5;color:#526f80}
+.depth-inspector{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start;column-gap:20px;row-gap:10px;margin-top:13px;padding-top:12px;border-top:1px solid #e3ebf0}
+.depth-inspector-heading{display:grid;gap:2px;font-size:10px;line-height:1.45;color:#6b8594;white-space:nowrap}
+.depth-inspector-heading strong{font-size:14px;color:#284756;font-variant-numeric:tabular-nums}
+.depth-inspector-values{display:flex;justify-content:flex-end;gap:9px 17px;flex-wrap:wrap}
+.depth-inspector-values>div{display:grid;gap:3px;min-width:76px}
+.depth-inspector-values>div>strong{font-size:13px;line-height:1.4;font-variant-numeric:tabular-nums;color:#284756}
+.depth-date-slider{grid-column:1/-1;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;font-size:9px;color:#708997}
+.depth-date-slider input{min-width:0;width:100%;accent-color:#355f76}
+.snow-depth-gap-note{font-size:10px;line-height:1.6;color:#6b8594;margin:9px 2px 0}
+.snow-depth-method{margin-top:17px;border-top:1px solid #dce7ed}
+.snow-depth-method>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:50px;list-style:none;cursor:pointer;font-size:12px;font-weight:600;color:#355f76}
+.snow-depth-method>summary::-webkit-details-marker{display:none}
+.snow-depth-method[open]>summary svg{transform:rotate(180deg)}
+.snow-depth-method>p{font-size:11px;line-height:1.7;color:#536f80;margin:0 0 10px;max-width:90ch}
+.snow-depth-method>p:last-child{margin-bottom:5px}
+.snow-depth-method .snow-depth-attribution{font-size:10px}
+.snow-depth-message{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;min-height:250px;padding:28px 18px;text-align:center;border:1px solid #dce7ed;border-radius:14px;background:#fff;color:#536f80}
+.snow-depth-message>svg{color:#517c94}
+.snow-depth-message h3{font:400 24px/1.3 Georgia,"Times New Roman",serif;color:#284756}
+.snow-depth-message p{max-width:52ch;font-size:12px;line-height:1.7;overflow-wrap:anywhere}
+.snow-depth-message button{min-height:42px;margin-top:4px;padding:10px 18px;background:#355f76;color:#fff;border-radius:9px;font-size:12px}
+.snow-depth-error{border-color:#e4c4bf}
+@media(max-width:700px){
+ .snow-depth-dialog{width:100%;max-width:none;max-height:calc(100dvh - 12px);margin:auto 0 0;border-radius:21px 21px 0 0;border-bottom:0}
+ .snow-depth-header{padding:21px 21px 17px;gap:12px}
+ .snow-depth-eyebrow{font-size:9px;letter-spacing:.1em}
+ .snow-depth-header h2{font-size:30px}
+ .snow-depth-resort{font-size:14px}
+ .snow-depth-content{padding:18px 19px calc(22px + env(safe-area-inset-bottom))}
+ .snow-depth-description{font-size:12px}
+ .snow-depth-range{font-size:11px;margin:16px 0}
+ .snow-depth-range button{min-height:38px;padding:8px 11px;font-size:11px}
+ .snow-depth-source{padding:12px 13px;margin-bottom:15px}
+ .snow-depth-source>div>a{font-size:10px}
+ .snow-depth-source>p{font-size:10px}
+ .snow-depth-season-picker[open]>div{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .snow-depth-season-picker label{font-size:10px}
+ .snow-depth-chart-section{padding:13px 11px 13px}
+ .snow-depth-chart-heading h3{font-size:14px}
+ .snow-depth-chart-caption{font-size:10px}
+ .depth-chart-grid text,.depth-chart-month text{font-size:19px}
+ .depth-chart-legend{gap:7px 11px}
+ .depth-inspector{column-gap:12px}
+ .depth-inspector-values{gap:8px 12px}
+ .depth-inspector-values>div{min-width:68px}
+ .depth-inspector-values>div>strong{font-size:12px}
+ .depth-date-slider{gap:7px}
+ .snow-depth-method>p{font-size:10px}
+}
+@media(max-width:370px){
+ .snow-depth-header{padding-left:17px;padding-right:17px}
+ .snow-depth-content{padding-left:15px;padding-right:15px}
+ .snow-depth-chart-section{padding-left:8px;padding-right:8px}
+ .depth-inspector{grid-template-columns:1fr}
+ .depth-inspector-values{justify-content:flex-start}
+ .depth-date-slider{grid-column:1;grid-template-columns:auto 1fr auto}
+}

@@ -316,7 +316,4 @@ select:focus-visible{outline:2px solid #547f99;outline-offset:3px}
 .model-details>.small{margin-top:5px}
 .model-details .model-comparison{margin-top:10px}
 .model-details .evidence-facts{margin-top:15px;padding:15px 0 17px}
-.snow-report-dialog{max-width:470px}
-.snow-report-dialog .dialog-header{margin-bottom:14px}
-.snow-report-intro{margin:0 0 17px;color:var(--copy);font-size:13px;line-height:1.6}
 @media(max-width:380px){.forecast-tools{gap:7px}.forecast-tools .history-button{gap:5px;padding:8px 6px;font-size:11px}.confidence-message{right:-4px}}
