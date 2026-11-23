@@ -14,7 +14,7 @@ export const OFFICIAL_REPORT_SOURCES = Object.freeze({
   }),
   hakuba: Object.freeze({
     sourceName: 'Hakuba Happo-one Snow Resort',
-    sourceUrl: 'https://www.happo-one.jp/en/winter/',
+    sourceUrl: 'https://www.happo-one.jp/en/',
     webcamUrl: 'https://www.happo-one.jp/en/gelande/livecamera/',
   }),
   nozawa: Object.freeze({
