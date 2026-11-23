@@ -7,6 +7,15 @@ User-visible changes are grouped by release. Expand a release for the detailed n
 No unreleased changes recorded.
 
 <details>
+<summary><strong>0.1.15 — 2026-11-23</strong> · Resort snow depth on Forecast</summary>
+
+- Put official resort snow depth first on the forecast card, with the station, report time, and a link to the source. Reduced the size of the overnight forecast value.
+- Opened the model breakdown by default inside Forecast details and removed the extra explanation blocks from the forecast view.
+- Updated the Hakuba Happo-one report collector to use the resort's current snow board URL.
+
+</details>
+
+<details>
 <summary><strong>0.1.14 — 2026-11-05</strong> · Compare winter snow depth</summary>
 
 ### Added

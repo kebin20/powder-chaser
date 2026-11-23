@@ -29,7 +29,7 @@ export const CURATED_RESORTS: Resort[] = [
     'https://www.princehotels.co.jp/ski/kagura/'),
   resort('hakuba', 'Hakuba Happo-one', 'Nagano', '長野県', 36.701, 137.824, 770, 1680,
     'osm:way/771668333', ['白馬八方尾根スキー場', 'Happo One'],
-    'https://www.happo-one.jp/en/winter/'),
+    'https://www.happo-one.jp/en/'),
   resort('nozawa', 'Nozawa Onsen', 'Nagano', '長野県', 36.922, 138.457, 616, 1407,
     'osm:way/938550591', ['野沢温泉スキー場'],
     'https://en.nozawaski.com/',

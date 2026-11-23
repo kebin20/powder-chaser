@@ -6,10 +6,13 @@ import treeImage from './assets/snowy-tree.svg?no-inline';
 import HistoryBoundary from './components/HistoryBoundary';
 import FeatureBoundary from './components/FeatureBoundary';
 import DecisionSignals from './components/DecisionSignals';
+import ResortSnowCard from './components/ResortSnowCard';
 import { DEMO_SCENARIOS, getDemoError, getDemoSnapshot, hasDemoScenario, normalizeDemoScenario, type DemoScenarioId } from './data/demo';
 import { evaluatePowder } from './lib/decision';
-import { formatJapanTime, getTripDates } from './lib/dates';
+import { formatJapanTime, getTripDates, overnightWindow } from './lib/dates';
 import { clearWeatherCache, fetchLiveSnapshot, WEATHER_CACHE_TTL_MS } from './lib/weather';
+import { clearResortReportCache } from './lib/resort-reports';
+import { useResortDepth, type ResortDepth } from './lib/use-resort-depth';
 import { normalizePreferences, type Preferences } from './lib/preferences';
 import type { DataMode, Elevation, PowderDecision, Resort, TripDate, WeatherSnapshot } from './types';
 import { version as appVersion } from '../package.json';
@@ -98,13 +101,20 @@ function closeOnBackdrop(event: MouseEvent<HTMLDialogElement>) {
 function Status({ decision }: { decision: PowderDecision }) {
   return <span className={`status ${decision.status}`} aria-label={`Overall trip recommendation: ${decision.status}`}>{decision.status === 'go' && <Check size={14} aria-hidden="true" />}{decision.status.toUpperCase()}</span>;
 }
-function Hero({ snapshot, resort, elevation, loading }: { snapshot: WeatherSnapshot | null; resort: Resort; elevation: Elevation; loading: boolean }) {
+function Hero({ snapshot, resort, elevation, loading, resortDepth }: {
+  snapshot: WeatherSnapshot | null; resort: Resort; elevation: Elevation; loading: boolean; resortDepth: ResortDepth;
+}) {
   const [slide, setSlide] = useState(0);
   const touch = useRef<{ x: number; y: number } | null>(null);
   const rain = snapshot && (snapshot.rainMm ?? 0) >= 2;
   const quiet = snapshot && snapshot.maxCm !== null && snapshot.maxCm <= 1;
   const label = loading ? 'Looking to the mountains' : !snapshot ? 'Forecast unavailable' : snapshot.maxCm === null ? 'Forecast still unclear' : rain ? 'A mixed weather window' : quiet ? 'A quieter snow window' : 'Snow on the horizon';
-  const depth = snapshot?.snowDepthCm ?? null;
+  const depth = resortDepth.valueCm;
+  const depthLabel = {
+    checking: 'Checking report…', unavailable: 'Report unavailable',
+    reported: 'Resort reported', past: 'Past report', demo: 'Illustrative resort report',
+  }[resortDepth.status];
+  const depthText = depth?.toLocaleString(undefined, { maximumFractionDigits: 1 }) ?? '—';
   const rulerMax = Math.max(300, Math.ceil((depth ?? 0) / 100) * 100);
   return <>
     <section className="hero" aria-roledescription="carousel" aria-label="Weather and snow depth" onPointerDown={event => {
@@ -121,9 +131,9 @@ function Hero({ snapshot, resort, elevation, loading }: { snapshot: WeatherSnaps
         <div className="hero-caption"><h2>{label}</h2><p>{(elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null ? 'Resort area' : elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {resort.region}</p></div>
       </div> : <div className="hero-slide depth-slide" role="group" aria-label="Total snow depth, slide 2 of 2">
         <div className="depth-scene"><img className="tree-illustration" src={treeImage} width={640} height={425} decoding="async" alt="" />
-        <div className="depth-label"><span className="hero-eyebrow">TOTAL SNOW DEPTH</span><div className="depth-value">{number(depth)}<span>cm</span></div><p>{depth === null ? 'Official report needed' : snapshot?.report.fictional ? 'Illustrative resort report' : 'Resort reported'}</p></div>
-        {depth !== null && <div className="ruler" aria-label={`${number(depth)} centimeters, on a scale of zero to ${rulerMax}`}><div className="ruler-fill" style={{ height: `${Math.min(depth / rulerMax * 100, 100)}%` }} />{[0, 1, 2, 3].map(tick => <span key={tick} style={{ bottom: `${tick / 3 * 100}%` }}>{Math.round(rulerMax * tick / 3)}</span>)}<i style={{ bottom: `${Math.min(depth / rulerMax * 100, 100)}%` }} /></div>}
-        </div><div className="depth-footnote"><p>{depth === null ? 'Snow depth is separate from fresh powder.' : 'Total depth, not fresh snowfall.'}</p>{depth !== null && <p className="depth-location">{snapshot?.report.location}</p>}</div>
+        <div className="depth-label"><span className="hero-eyebrow">TOTAL SNOW DEPTH</span><div className="depth-value">{depthText}{depth !== null && <span>cm</span>}</div><p>{depthLabel}</p></div>
+        {depth !== null && <div className="ruler" aria-label={`${depthText} centimeters, on a scale of zero to ${rulerMax}`}><div className="ruler-fill" style={{ height: `${Math.min(depth / rulerMax * 100, 100)}%` }} />{[0, 1, 2, 3].map(tick => <span key={tick} style={{ bottom: `${tick / 3 * 100}%` }}>{Math.round(rulerMax * tick / 3)}</span>)}<i style={{ bottom: `${Math.min(depth / rulerMax * 100, 100)}%` }} /></div>}
+        </div><div className="depth-footnote"><p>{depth === null ? 'Snow depth is separate from fresh powder.' : 'Total depth of the snowpack.'}</p>{depth !== null && resortDepth.station && <p className="depth-location">{resortDepth.station}</p>}</div>
       </div>}
     </section>
     <nav className="hero-navigation" aria-label="Hero slides" onKeyDown={event => {
@@ -136,26 +146,24 @@ function Hero({ snapshot, resort, elevation, loading }: { snapshot: WeatherSnaps
     </nav>
   </>;
 }
-function Evidence({ snapshot, mode, resort, elevation, setElevation, decision, threshold, refresh }: { snapshot: WeatherSnapshot | null; mode: DataMode; resort: Resort; elevation: Elevation; setElevation: (value: Elevation) => void; decision: PowderDecision | null; threshold: number; refresh: () => void }) {
+function Evidence({ snapshot, resort, elevation, setElevation, refresh }: {
+  snapshot: WeatherSnapshot | null; resort: Resort; elevation: Elevation; setElevation: (value: Elevation) => void; refresh: () => void;
+}) {
   const top = Math.max(30, ...(snapshot?.models ?? []).map(m => m.snowfallCm ?? 0));
   return <details className="evidence">
     <summary><span><Info size={15} />Forecast details</span><ChevronDown size={16} /></summary>
     <div className="evidence-content">
       <div className="elevation-switch" role="group" aria-label="Forecast elevation">{(['upper', 'base'] as const).map(value => <button key={value} aria-pressed={elevation === value} onClick={() => setElevation(value)}>{value === 'upper' ? 'Upper' : 'Base'} · {(value === 'upper' ? resort.upperElevationM : resort.baseElevationM)?.toLocaleString() ?? 'Not mapped'}{(value === 'upper' ? resort.upperElevationM : resort.baseElevationM) !== null && ' m'}</button>)}</div>
-      <details className="model-details">
+      <details className="model-details" open>
         <summary><span>Model breakdown & conditions</span><ChevronDown size={14} /></summary>
-        {snapshot && decision ? <>
+        {snapshot ? <>
           <h3>Overnight snowfall by model</h3>
           <p className="small muted">{snapshot.window.start.slice(0, 10)} 18:00 → {snapshot.date} 08:00 JST</p>
           <div className="model-comparison">{snapshot.models.map(model => <div className="model-row" key={model.id}><a href={model.sourceUrl} target="_blank" rel="noreferrer">{model.label}<ExternalLink size={10} /></a><div className="model-track"><i style={{ width: `${Math.min((model.snowfallCm ?? 0) / top * 100, 100)}%` }} /></div><strong>{model.complete ? `${number(model.snowfallCm)} cm` : 'Unavailable'}</strong></div>)}</div>
-          <p className="small muted">{decision.confidenceLabel}. The spread shows differences between model estimates, not a probability.</p>
           <div className="evidence-facts"><div><Thermometer size={15} /><span>Temperature<strong>{number(snapshot.tempC)}°C</strong></span></div><div><Wind size={15} /><span>Wind<strong>{number(snapshot.windKph)} km/h</strong></span></div></div>
         </> : <p className="small muted">Model details are unavailable until a complete forecast loads.</p>}
         {snapshot && <div className="retrieval"><span>{snapshot.mode === 'demo' ? snapshot.updatedLabel : `Retrieved ${formatJapanTime(snapshot.updatedAt)}`}</span>{snapshot.mode === 'live' && <button className="text-button" onClick={refresh}>Refresh</button>}</div>}
-        {mode === 'live' && <p className="small muted">Retrieval time is not the model issue time. Model issue times are unavailable. Weather data: <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.</p>}
       </details>
-      <details className="method-details"><summary>How the recommendation works<ChevronDown size={14} /></summary>{decision && <><p><strong>Overall trip recommendation: {decision.status.toUpperCase()}.</strong> {decision.reason}</p><p><strong>Access:</strong> {decision.access.reason}</p></>}<p>The powder outlook checks complete overnight forecasts against your {threshold} cm minimum, then temperature, rain and wind. The overall Go / Maybe / Skip also requires verified access for your ski date. A promising powder outlook can still mean Maybe when access is unconfirmed.</p><p>Model agreement is not a probability. Forecasts describe snowfall potential; terrain, tracking and local snow conditions still affect the ski experience.</p></details>
-      {snapshot && snapshot.warnings.length > 0 && <div className="data-notices">{snapshot.warnings.map(warning => <p key={warning}>{warning}</p>)}</div>}
     </div>
   </details>;
 }
@@ -192,6 +200,7 @@ export default function App() {
   const resort = RESORTS.find(r => r.id === preferences.resortId) || RESORTS[0];
   const date = dates[dateIndex];
   const data = useSnapshot(resort, date.date, preferences.elevation, preferences.mode, view !== 'favorites', refresh, preferences.demoScenario);
+  const resortDepth = useResortDepth(resort, date.date, preferences.mode, data.snapshot, view === 'forecast', refresh);
   const alternate = useSnapshot(resort, dates[1 - dateIndex].date, preferences.elevation, preferences.mode, view === 'plan', refresh, preferences.demoScenario);
   const demoScenario = DEMO_SCENARIOS.find(scenario => scenario.id === preferences.demoScenario)!;
   const decision = data.snapshot ? evaluatePowder(data.snapshot, preferences.threshold) : null;
@@ -233,7 +242,14 @@ export default function App() {
     measure();
     return () => observer.disconnect();
   }, [filtered.length, desktop]);
-  const reload = () => { clearWeatherCache(); setRefresh(value => value + 1); };
+  const reload = () => {
+    clearWeatherCache();
+    clearResortReportCache();
+    setRefresh(value => value + 1);
+  };
+  const forecastHeight = preferences.elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM;
+  const forecastLocation = forecastHeight === null ? 'Resort area'
+    : `${preferences.elevation === 'upper' ? 'Upper' : 'Base'} · ${forecastHeight.toLocaleString()} m`;
   const filterControls = <><label className="search-field"><Search size={15} /><input placeholder="Resort name · English or 日本語" aria-label="Search resorts" value={query} onChange={event => setQuery(event.target.value)} /></label><label className="prefecture-filter"><span>Prefecture</span><select aria-label="Filter by prefecture" value={region} onChange={event => setRegion(event.target.value)}><option value="All">All Japan · {RESORTS.length}</option>{RESORT_REGIONS.map(item => <option key={item} value={item}>{item}</option>)}</select></label></>;
   const navigate = (newView: View) => { setView(newView); window.scrollTo({ top: 0 }); };
   const nav = <nav className="app-navigation" aria-label="Main navigation">{([{ id: 'forecast', label: 'Forecast', Icon: Snowflake }, { id: 'favorites', label: 'Favorites', Icon: Star }, { id: 'plan', label: 'Plan a trip', Icon: CalendarDays }] as const).map(item => <button key={item.id} className={view === item.id ? 'active' : ''} aria-current={view === item.id ? 'page' : undefined} onClick={() => navigate(item.id)}><item.Icon size={19} /><span>{item.label}</span></button>)}</nav>;
@@ -255,13 +271,28 @@ export default function App() {
       {view === 'forecast' ? <>
         <div className="forecast-heading"><div><div className="location-line"><MapPin size={11} />{resort.region}, Japan<span className={`mode-label ${preferences.mode}`}>{preferences.mode === 'demo' ? 'DEMO' : 'LIVE MODELS'}</span></div><button className="resort-heading" onClick={openExplorer} aria-label={`Choose resort, currently ${resort.name}`}><h1>{resort.name}</h1><ChevronDown size={19} /></button><a className="resort-homepage" href={resort.officialUrl ?? resort.sourceUrl} target="_blank" rel="noreferrer">{resort.officialUrl ? 'Resort website' : 'Resort map listing'}<ExternalLink size={11} aria-hidden="true" /></a></div><button className={`icon-button favorite-button ${preferences.favorites.includes(resort.id) ? 'saved' : ''}`} onClick={() => toggleFavorite(resort.id)} aria-label={`${preferences.favorites.includes(resort.id) ? 'Remove from' : 'Add to'} favorites`} aria-pressed={preferences.favorites.includes(resort.id)}><Star size={20} fill={preferences.favorites.includes(resort.id) ? 'currentColor' : 'none'} /></button></div>
         <div className="date-selector" role="group" aria-label="Ski morning">{dates.map((item, index) => <button key={item.id} className={dateIndex === index ? 'active' : ''} aria-pressed={dateIndex === index} onClick={() => setDateIndex(index)}><span>{item.label}</span><small>{item.shortLabel}</small></button>)}<span className="date-timezone">JST</span></div>
-        <div className="forecast-layout"><div className="forecast-visual"><Hero snapshot={data.snapshot} resort={resort} elevation={preferences.elevation} loading={data.loading} /></div>
-        <div className="forecast-summary">{data.loading ? <div className="loading-card" role="status"><Snowflake size={23} /><h2>Checking three forecasts</h2><p>For {date.shortLabel}, {(preferences.elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null ? 'the resort area' : `${preferences.elevation} mountain`}.</p></div> : data.error ? <div className="error-card" role="alert"><h2>{preferences.mode === 'demo' ? 'Winter test scenario.' : 'Forecasts couldn’t be loaded.'}</h2><p>{data.error}</p><div className="error-actions"><button className="primary-button" onClick={preferences.mode === 'demo' ? () => settings.current?.showModal() : reload}>{preferences.mode === 'demo' ? 'Change test scenario' : 'Try again'}</button><button className="text-button" onClick={() => patch(preferences.mode === 'demo' ? { mode: 'live' } : { mode: 'demo', demoScenario: 'powder' })}>{preferences.mode === 'demo' ? 'Load live forecasts' : 'Explore the demo'}</button></div></div> : data.snapshot && decision ? <>
-          <section className="snowfall-card" aria-label="Overnight forecast snowfall"><div><span className="small muted">Forecast fresh snow</span><p className="snowfall-value">{snowRange(data.snapshot)}<small>cm</small></p><p className="window-label"><Snowflake size={12} />Overnight · {data.snapshot.windowLabel}</p></div><div className="snowfall-side"><span>{data.snapshot.elevationM === null ? 'RESORT AREA' : preferences.elevation === 'upper' ? 'UPPER' : 'BASE'}</span><p>{data.snapshot.elevationM === null ? 'Model grid' : `${data.snapshot.elevationM.toLocaleString()} m`}</p><details className="confidence-popover"><summary className="agreement-label"><Info size={13} aria-hidden="true" />Confidence</summary><div className="confidence-message"><strong>{decision.confidenceLabel}</strong><p>How closely the available forecasts align. It is not a probability of powder.</p></div></details></div></section>
-          <section className="verdict" aria-label="Trip recommendation"><div className="verdict-line"><h2>{decision.title}.</h2><Status decision={decision} /></div><DecisionSignals decision={decision} /></section>
-        </> : null}</div></div>
+        <div className="forecast-layout">
+          <div className="forecast-visual">
+            <Hero snapshot={data.snapshot} resort={resort} elevation={preferences.elevation} loading={data.loading} resortDepth={resortDepth} />
+          </div>
+          <div className="forecast-summary">
+            <ResortSnowCard
+              depth={resortDepth}
+              forecast={data.snapshot ? snowRange(data.snapshot) : '—'}
+              windowLabel={overnightWindow(date.date).label}
+              location={forecastLocation}
+              confidence={decision?.confidenceLabel}
+            />
+            {data.loading && <p className="forecast-loading" role="status">Checking three forecasts…</p>}
+            {data.error && <div className="error-card forecast-error" role="alert"><h2>{preferences.mode === 'demo' ? 'Winter test scenario.' : 'Forecasts couldn’t be loaded.'}</h2><p>{data.error}</p><div className="error-actions"><button className="primary-button" onClick={preferences.mode === 'demo' ? () => settings.current?.showModal() : reload}>{preferences.mode === 'demo' ? 'Change test scenario' : 'Try again'}</button><button className="text-button" onClick={() => patch(preferences.mode === 'demo' ? { mode: 'live' } : { mode: 'demo', demoScenario: 'powder' })}>{preferences.mode === 'demo' ? 'Load live forecasts' : 'Explore the demo'}</button></div></div>}
+            {decision && <section className="verdict" aria-label="Trip recommendation">
+              <div className="verdict-line"><h2>{decision.title}.</h2><Status decision={decision} /></div>
+              <DecisionSignals decision={decision} showReason={false} />
+            </section>}
+          </div>
+        </div>
         <div className="forecast-tools"><button className="history-button" onClick={() => setHistoryOpen(true)}><ChartNoAxesColumn size={17} aria-hidden="true" /><span>Snowfall history</span><ChevronRight size={15} aria-hidden="true" /></button><button className="history-button" onClick={() => setDepthHistoryOpen(true)}><MountainSnow size={17} aria-hidden="true" /><span>Snow depth history</span><ChevronRight size={15} aria-hidden="true" /></button></div>
-        <Evidence snapshot={data.snapshot} mode={preferences.mode} resort={resort} elevation={preferences.elevation} setElevation={value => patch({ elevation: value })} decision={decision} threshold={preferences.threshold} refresh={reload} />
+        <Evidence snapshot={data.snapshot} resort={resort} elevation={preferences.elevation} setElevation={value => patch({ elevation: value })} refresh={reload} />
       </> : view === 'favorites' ? <div className="collection-view"><span className="eyebrow">YOUR MOUNTAINS</span><h1>A personal shortlist.</h1><p className="view-intro">Compare your mountains for the same overnight window.</p><div className="date-selector" role="group" aria-label="Favorite ski morning">{dates.map((item, index) => <button key={item.id} className={dateIndex === index ? 'active' : ''} aria-pressed={dateIndex === index} onClick={() => setDateIndex(index)}><span>{item.label}</span><small>{item.shortLabel}</small></button>)}<span className="date-timezone">JST</span></div><FeatureBoundary name="Favorites comparison"><Suspense fallback={<p className="small muted" role="status">Opening your mountain comparison…</p>}><FavoritesComparison resorts={saved} date={date} elevation={preferences.elevation} mode={preferences.mode} demoScenario={preferences.demoScenario} threshold={preferences.threshold} onSelect={selectResort} onFavorite={toggleFavorite} /></Suspense></FeatureBoundary><button className="primary-button browse-button" onClick={openExplorer}><Search size={15} />Find a resort</button><div className="collection-note"><Heart size={17} /><p>Your favorites stay in this browser, ready for your next snow day.</p></div></div> : <div className="plan-view"><span className="eyebrow">MAKE ROOM FOR A SNOW DAY</span><h1>Pick your powder window.</h1><p className="view-intro">Compare the next two ski mornings at <button className="inline-resort" onClick={openExplorer}>{resort.name}<ChevronDown size={13} /></button></p><div className="plan-preferences"><span>{(preferences.elevation === 'upper' ? resort.upperElevationM : resort.baseElevationM) === null ? 'Resort area' : preferences.elevation === 'upper' ? 'Upper mountain' : 'Base area'} · {preferences.threshold} cm minimum</span><button className="text-button" onClick={() => settings.current?.showModal()}>Adjust</button></div><div className="plan-grid">{dates.map((item, index) => {
           const itemData = index === dateIndex ? data : alternate;
           return <PlanCard key={item.id} date={item} snapshot={itemData.snapshot} loading={itemData.loading} error={itemData.error} threshold={preferences.threshold} onSelect={() => { setDateIndex(index); navigate('forecast'); }} />;
@@ -277,7 +308,9 @@ export default function App() {
       {preferences.mode === 'demo' && <fieldset className="preference-group scenario-settings"><legend>Winter test scenario</legend><label className="sr-only" htmlFor="demo-scenario">Winter test scenario</label><select id="demo-scenario" value={preferences.demoScenario} onChange={event => patch({ demoScenario: normalizeDemoScenario(event.target.value) })}>{DEMO_SCENARIOS.map(scenario => <option key={scenario.id} value={scenario.id}>{scenario.label}</option>)}</select><p className="scenario-description">{demoScenario.description}</p>{preferences.demoScenario === 'rain' && <div className="elevation-switch" role="group" aria-label="Rain scenario elevation">{(['upper', 'base'] as const).map(value => <button key={value} aria-pressed={preferences.elevation === value} onClick={() => patch({ elevation: value })}>{value === 'upper' ? 'Upper · snow' : 'Base · rain'}</button>)}</div>}<p className="small muted">These fictional tests check app behaviour. They do not measure forecast accuracy.</p></fieldset>}
       <fieldset className="preference-group"><legend>Your worthwhile snowfall</legend><div className="threshold-display"><span>Minimum fresh snow</span><strong>{preferences.threshold}<small> cm</small></strong></div><label className="sr-only" htmlFor="snow-threshold">Minimum worthwhile fresh snowfall in centimeters</label><input id="snow-threshold" className="threshold-slider" type="range" min="5" max="50" step="5" value={preferences.threshold} onChange={event => patch({ threshold: Number(event.target.value) })} /><div className="range-labels"><span>5 cm · a little refresh</span><span>50 cm · deep day</span></div></fieldset>
       <fieldset className="preference-group"><legend>Mountain elevation</legend><div className="elevation-switch" role="group" aria-label="Preferred forecast elevation">{(['upper', 'base'] as const).map(value => <button key={value} aria-pressed={preferences.elevation === value} onClick={() => patch({ elevation: value })}>{value === 'upper' ? 'Upper mountain' : 'Base area'}</button>)}</div></fieldset>
-      <button className="primary-button full-width" onClick={() => settings.current?.close()}>Back to the mountains<ChevronRight size={15} /></button><p className="settings-note">Preferences save automatically in this browser.</p><p className="version-note">Version {appVersion}</p>
+      <button className="primary-button full-width" onClick={() => settings.current?.close()}>Back to the mountains<ChevronRight size={15} /></button><p className="settings-note">Preferences save automatically in this browser.</p>
+      <p className="settings-note weather-credits">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noreferrer">Open-Meteo</a> · <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a></p>
+      <p className="version-note">Version {appVersion}</p>
     </dialog>
   </div>;
 }
