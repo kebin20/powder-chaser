@@ -16,7 +16,8 @@ The deployment environment and forecast mode are separate: both previews start w
 - Calm Alpine design with two **static 2D hero cards**: snowfall conditions and a snow-depth illustration. Swipe or use the carousel buttons; there is no animation or automatic rotation.
 - Japan resort selection, two upcoming ski mornings in Japan time, and base/upper-mountain forecasts.
 - Overnight snowfall range, followed by a short trip recommendation with separate powder potential and trip-date access signals.
-- An optional model and conditions breakdown, with forecast confidence available on demand.
+- A compact snow card with officially reported depth where available, the station and timestamp, and the overnight fresh snow forecast.
+- Forecast details show the model and conditions breakdown by default, with forecast confidence available on demand.
 - A separate snow-depth history chart comparing five or ten completed winters, with selectable seasons and a date-by-date depth inspector. Estimates are clearly labelled and are not resort or piste measurements.
 - Eleven selectable Winter Demo scenarios for testing powder, rain, wind, closures, missing/outdated data and connection failures before winter.
 - A personal minimum-snowfall threshold and favourite resorts saved in your browser.
@@ -39,7 +40,7 @@ The eight curated starter resorts are Akakura Kanko, Kagura, Hakuba Happo-one, N
 
 All three models use the same resort coordinate, selected elevation, and **18:00 the previous evening to 08:00 on the selected ski morning, JST**. Hourly snowfall is summed over that window. The middle forecast is the typical estimate; the smallest and largest values show model disagreement, not a probability interval. Missing or incomplete windows remain unknown instead of becoming zero.
 
-The deployment pipeline also collects dated resort snow/lift reports for Rusutsu, Madarao, Hakuba Happo-one, and Nozawa Onsen. These are not used as historical daily depth series: they have limited resort coverage, stations and report dates vary, and a current-day report does not verify future access. See [report sources and collection](docs/resort-reports.md).
+The deployment pipeline collects dated resort snow and lift reports for Rusutsu, Madarao, Hakuba Happo-one, and Nozawa Onsen. The Forecast card shows total snow depth where a dated station reading is available and labels older observations **Past report**. Trip-date access still requires verification for the selected ski morning. See [report sources and collection](docs/resort-reports.md).
 
 Model grids cannot resolve every slope or local snowfall effect. JMA snowfall here is Open-Meteo's derived estimate, and selecting a mountain elevation does not turn the forecast into a measured upper-slope report. Retrieval timestamps describe when the app fetched data, not the model's issue time. See the [JMA](https://open-meteo.com/en/docs/jma-api), [ECMWF](https://open-meteo.com/en/docs/ecmwf-api), and [GFS](https://open-meteo.com/en/docs/gfs-api) source documentation.
 

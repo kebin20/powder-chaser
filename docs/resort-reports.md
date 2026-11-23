@@ -1,6 +1,6 @@
-# Morning resort check
+# Resort snow reports
 
-Open **Forecast details & resort report** to see the morning check. It is a separate observation view: it does not turn reported snow into a forecast or use today's lifts to verify tomorrow's access. It remains available when model forecasts fail.
+The **Total snow depth** card on Forecast shows the selected resort's station reading where a dated official report is available. The card links to the resort's site and shows the observation time in JST. The reading stays available if the overnight forecast fails.
 
 ## Verified coverage
 
@@ -8,7 +8,7 @@ Open **Forecast details & resort report** to see the morning check. It is a sepa
 | --- | --- | --- |
 | Rusutsu | West Mt. total snow accumulation and explicitly labelled 24-hour snowfall; independently timestamped lift status | [Snow and weather](https://rusutsu.com/en/snow-and-weather-report/), [official lift data](https://rusutsu.com/assets/partial/ajax/trail-and-lift/get-front.php) |
 | Madarao | Explicitly labelled 24-hour snowfall and total depth, with the source report timestamp | [Official ski page](https://www.madarao.jp/ski) |
-| Hakuba Happo-one | Kurobishi total depth at 1,680 m, with its full-year station update; the generic `SnowFall` field has no stated window and is not presented as 24-hour snowfall | [Official winter page](https://www.happo-one.jp/en/winter/) |
+| Hakuba Happo-one | Kurobishi total depth at 1,680 m with the station update time | [Official snow board](https://www.happo-one.jp/en/) |
 | Nozawa Onsen | Independently dated lift/transport status only; snow readings remain unknown | [Official English lift status](https://en.nozawaski.com/the-mountain/moutain-info/slopes-lifts/) |
 
 Source fields may be blank or retain earlier-season dates outside winter. Dashes and missing/invalid numbers are **unavailable**, never zero. A genuine reported zero remains zero. Madarao's lift table describes an operating schedule, so the initial adapter does not present it as live confirmed operations. Official webcam links cover all eight curated starter resorts. They open the official page rather than embedding heavy video players.
@@ -25,7 +25,7 @@ Each report retains its station, source URL, report date and explicit publicatio
 
 Readings are current only when dated today in Japan and less than 24 hours old. Older valid readings remain visible as **Past report**. Unknown/future timestamps suppress the reading. Current operations are marked separately from future trip access; a report for today never confirms either of the two upcoming ski mornings. Partial operation and a temporary hold remain distinct from open or closed.
 
-Reported fresh snow is a **24-hour observation**, while model forecasts use the app's 18:00–08:00 overnight window. These values are not directly interchangeable. The observation station also need not match the selected forecast sampling height. The live snow-depth hero remains unknown because these station-specific readings are confined to the report view.
+The card and the live snow-depth illustration share the same station reading. Changing the upper or base sampling height changes the forecast only. The separate overnight forecast uses the app's 18:00–08:00 window.
 
 ## Collection and loading
 
@@ -33,7 +33,7 @@ Run `npm run reports:refresh` to refresh `public/data/resort-reports.json` local
 
 The Pages workflow collects reports into each environment's `dist/data/resort-reports.json` after compiling its own branch. The same workflow is scheduled hourly from November through May and once daily June–October. Scheduled runs execute from `main`; GitHub Actions may delay or skip schedules, and source outages may leave fields unavailable. The report timestamps remain the authority. Manual Pages deployment also refreshes reports. The workflow still checks out and builds main/staging separately, tests both and publishes one serialized artifact. The initial staging rollout tolerates a live branch that does not yet contain the collector.
 
-The client loads the one generated file only when opening the details dropdown in live mode. Concurrent consumers share a request and cache it in memory for 15 minutes; cancellations are independent and unsuccessful requests can be retried. Winter Demo keeps its fictional observations explicitly labelled and does not download the official report file. The service worker bypasses the JSON; offline reload retains the interface and official links, without claiming to retrieve current observations.
+The client loads one generated report file when visiting Forecast in live mode. It caches the file in memory for 15 minutes and checks again periodically while the forecast view is visible. The Refresh button in Forecast details refreshes the weather forecast and resort report. Winter Demo displays labelled fictional observations. The service worker bypasses the report JSON.
 
 ## Favourites comparison
 
